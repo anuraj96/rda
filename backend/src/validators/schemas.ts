@@ -83,6 +83,7 @@ export const attendanceRecordSchema = z.object({
 
 export const studentAttendanceListSchema = z.object({
   batchId: z.string().uuid('Invalid Batch ID'),
+  branchId: z.string().uuid('Invalid Branch ID').optional().nullable(),
   date: z.string().transform((val) => new Date(val)),
   records: z.array(
     z.object({
@@ -117,6 +118,7 @@ export const expenseSchema = z.object({
   description: z.string().min(3, 'Description must be at least 3 characters'),
   billUrl: z.string().url('Bill URL must be valid').optional().nullable(),
   status: z.enum(['PAID', 'PENDING']).default('PAID'),
+  branchId: z.string().uuid('Invalid Branch ID').optional().nullable(),
   eventId: z.string().uuid().optional().nullable(),
 });
 

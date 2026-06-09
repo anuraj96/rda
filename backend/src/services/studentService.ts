@@ -142,10 +142,20 @@ export class StudentService {
         });
       }
 
-      // 3. Generate initial Fees if courseId is provided
-      if (data.courseId) {
+      // 3. Generate initial Fees if courseId is provided or can be resolved from batchId
+      let courseIdToUse = data.courseId;
+      if (!courseIdToUse && data.batchId) {
+        const batch = await tx.batch.findUnique({
+          where: { id: data.batchId },
+        });
+        if (batch) {
+          courseIdToUse = batch.courseId;
+        }
+      }
+
+      if (courseIdToUse) {
         const course = await tx.course.findFirst({
-          where: { id: data.courseId, organizationId: orgId, isActive: true },
+          where: { id: courseIdToUse, organizationId: orgId, isActive: true },
         });
 
         if (course) {
@@ -276,6 +286,64 @@ export class StudentService {
               status: 'ACTIVE',
             },
           });
+        }
+      }
+
+      // Generate fees if courseId is provided or can be resolved from batchId and the student currently has no fees
+      let courseIdToUse = data.courseId;
+      if (!courseIdToUse && data.batchId) {
+        const batch = await tx.batch.findUnique({
+          where: { id: data.batchId },
+        });
+        if (batch) {
+          courseIdToUse = batch.courseId;
+        }
+      }
+
+      if (courseIdToUse && student.fees.length === 0) {
+        const course = await tx.course.findFirst({
+          where: { id: courseIdToUse, organizationId: orgId, isActive: true },
+        });
+
+        if (course) {
+          // A. Registration Fee invoice
+          if (course.registrationFee.greaterThan(0)) {
+            await tx.fee.create({
+              data: {
+                organizationId: orgId,
+                branchId: student.branchId,
+                studentId: id,
+                type: 'REGISTRATION',
+                amount: course.registrationFee,
+                dueDate: data.joiningDate || new Date(),
+                status: 'PENDING',
+                remarks: `Initial Registration Fee for ${course.name}`,
+                createdBy: userId,
+                updatedBy: userId,
+              },
+            });
+          }
+
+          // B. First Month Fee invoice
+          if (course.monthlyFee.greaterThan(0)) {
+            const dueDate = new Date();
+            dueDate.setDate(dueDate.getDate() + 10); // due in 10 days
+
+            await tx.fee.create({
+              data: {
+                organizationId: orgId,
+                branchId: student.branchId,
+                studentId: id,
+                type: 'MONTHLY',
+                amount: course.monthlyFee,
+                dueDate,
+                status: 'PENDING',
+                remarks: `First month tuition fee for ${course.name}`,
+                createdBy: userId,
+                updatedBy: userId,
+              },
+            });
+          }
         }
       }
 

@@ -12,9 +12,6 @@ import {
   Calendar,
   FileBarChart2,
   Shield,
-  Bell,
-  Sun,
-  Moon,
   Search,
   LogOut,
   Menu,
@@ -28,9 +25,9 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const { user, logout, activeBranchId, switchBranch, hasPermission } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [branches, setBranches] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,57 +41,47 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     }
   }, [user]);
 
-  // Fetch notifications
+  // Fetch notifications (Commented out - not implemented)
   const fetchNotifications = () => {
+    /*
     api.get('/notifications')
       .then(res => setNotifications(res.data.data))
       .catch(() => { });
+    */
   };
 
   useEffect(() => {
     if (user) {
+      /*
       fetchNotifications();
       const interval = setInterval(fetchNotifications, 30000); // 30s poll
       return () => clearInterval(interval);
+      */
     }
   }, [user]);
 
-  // Theme control
+  // Enforce Light Mode
   useEffect(() => {
-    const theme = localStorage.getItem('rda_theme');
-    if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-      setIsDarkMode(true);
-    } else {
-      document.documentElement.classList.remove('dark');
-      setIsDarkMode(false);
-    }
+    document.documentElement.classList.remove('dark');
+    localStorage.removeItem('rda_theme');
   }, []);
 
-  const toggleTheme = () => {
-    if (isDarkMode) {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('rda_theme', 'light');
-      setIsDarkMode(false);
-    } else {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('rda_theme', 'dark');
-      setIsDarkMode(true);
-    }
-  };
-
   const markNotificationRead = async (id: string) => {
+    /*
     try {
       await api.put(`/notifications/${id}/read`);
       fetchNotifications();
     } catch { }
+    */
   };
 
   const markAllNotificationsRead = async () => {
+    /*
     try {
       await api.put('/notifications/read-all');
       fetchNotifications();
     } catch { }
+    */
   };
 
   const handleBranchChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -114,7 +101,7 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     { label: 'Fees & Billing', icon: CreditCard, path: '/fees', permission: 'manage:fees' },
     { label: 'Income & Expenses', icon: TrendingDown, path: '/expenses', permission: 'manage:expenses' },
     { label: 'Events & Shows', icon: Calendar, path: '/events', permission: 'manage:events' },
-    { label: 'Reports & P&L', icon: FileBarChart2, path: '/reports', permission: 'read:reports' },
+    // { label: 'Reports & P&L', icon: FileBarChart2, path: '/reports', permission: 'read:reports' },
     { label: 'Audit Security Logs', icon: Shield, path: '/logs', permission: 'read:dashboard', superAdminOnly: true },
   ];
 
@@ -170,7 +157,7 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
             </div>
           </div>
           <button
-            onClick={() => { logout(); navigate('/login'); }}
+            onClick={() => setIsLogoutConfirmOpen(true)}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-destructive border border-destructive/20 hover:bg-destructive/10 rounded-xl transition-all"
           >
             <LogOut className="h-4 w-4" />
@@ -221,16 +208,10 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
               </div>
             )}
 
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 hover:bg-secondary rounded-xl transition-all"
-              title="Toggle Theme"
-            >
-              {isDarkMode ? <Sun className="h-5 w-5 text-yellow-500" /> : <Moon className="h-5 w-5 text-muted-foreground" />}
-            </button>
 
-            {/* Notifications Drawer Switch */}
+
+            {/* Notifications Drawer Switch (Commented out - not implemented) */}
+            {/*
             <div className="relative">
               <button
                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
@@ -242,7 +223,6 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                 )}
               </button>
 
-              {/* Notification Popup Menu */}
               {isNotificationsOpen && (
                 <div className="absolute right-0 mt-3 w-80 bg-card border border-border rounded-2xl shadow-xl z-50 overflow-hidden">
                   <div className="p-4 border-b border-border flex items-center justify-between bg-secondary/35">
@@ -289,6 +269,7 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                 </div>
               )}
             </div>
+            */}
           </div>
         </header>
 
@@ -333,13 +314,46 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
               })}
             </nav>
 
-            <div className="pt-4 border-t border-border">
+             <div className="pt-4 border-t border-border">
               <button
-                onClick={() => { logout(); navigate('/login'); }}
+                onClick={() => { setIsMobileMenuOpen(false); setIsLogoutConfirmOpen(true); }}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold text-destructive border border-destructive/20 hover:bg-destructive/10 rounded-xl"
               >
                 <LogOut className="h-4 w-4" />
                 <span>Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Logout Confirmation Modal */}
+      {isLogoutConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-6 animate-scale-in text-center">
+            <div className="mx-auto h-12 w-12 bg-destructive/10 text-destructive flex items-center justify-center rounded-full">
+              <LogOut className="h-6 w-6" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-base font-bold text-foreground animate-pulse">Confirm Sign Out</h3>
+              <p className="text-xs text-muted-foreground">Are you sure you want to sign out of your dance school workspace?</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsLogoutConfirmOpen(false)}
+                className="flex-1 bg-secondary hover:bg-secondary/80 border border-border py-2 px-3 rounded-xl font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setIsLogoutConfirmOpen(false);
+                  logout();
+                  navigate('/login');
+                }}
+                className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground py-2 px-3 rounded-xl font-semibold text-xs shadow-lg transition-colors cursor-pointer"
+              >
+                Sign Out
               </button>
             </div>
           </div>

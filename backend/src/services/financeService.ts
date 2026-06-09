@@ -3,7 +3,7 @@ import { NotFoundError, BadRequestError } from '../utils/errors';
 
 export class FinanceService {
   // Fees
-  static async listFees(orgId: string, branchId?: string, query?: { status?: string; studentId?: string; search?: string }) {
+  static async listFees(orgId: string, branchId?: string, query?: { status?: string; studentId?: string; search?: string; month?: string; page?: number; limit?: number }) {
     const where: any = { organizationId: orgId, isActive: true };
     if (branchId) where.branchId = branchId;
     if (query?.status) where.status = query.status;
@@ -15,15 +15,34 @@ export class FinanceService {
       };
     }
 
-    return prisma.fee.findMany({
+    if (query?.month) {
+      const [year, month] = query.month.split('-');
+      const start = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
+      const end = new Date(parseInt(year, 10), parseInt(month, 10), 0, 23, 59, 59, 999);
+      where.dueDate = { gte: start, lte: end };
+    }
+
+    const page = query?.page || 1;
+    const limit = query?.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await prisma.fee.count({ where });
+    const data = await prisma.fee.findMany({
       where,
       include: {
         student: {
           select: { id: true, name: true, admissionNumber: true, parentPhone: true },
         },
+        payments: {
+          where: { isActive: true },
+        },
       },
       orderBy: { dueDate: 'desc' },
+      skip,
+      take: limit,
     });
+
+    return { data, total };
   }
 
   static async getFeeById(orgId: string, id: string) {
@@ -161,7 +180,7 @@ export class FinanceService {
     });
   }
 
-  static async getDefaulters(orgId: string, branchId?: string) {
+  static async getDefaulters(orgId: string, branchId?: string, query?: { page?: number; limit?: number }) {
     const today = new Date();
 
     const where: any = {
@@ -175,7 +194,12 @@ export class FinanceService {
       where.branchId = branchId;
     }
 
-    return prisma.fee.findMany({
+    const page = query?.page || 1;
+    const limit = query?.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await prisma.fee.count({ where });
+    const data = await prisma.fee.findMany({
       where,
       include: {
         student: {
@@ -183,11 +207,15 @@ export class FinanceService {
         },
       },
       orderBy: { dueDate: 'asc' },
+      skip,
+      take: limit,
     });
+
+    return { data, total };
   }
 
   // Expenses CRUD
-  static async listExpenses(orgId: string, branchId?: string, query?: { category?: string; start?: Date; end?: Date }) {
+  static async listExpenses(orgId: string, branchId?: string, query?: { category?: string; start?: Date; end?: Date; page?: number; limit?: number }) {
     const where: any = { organizationId: orgId, isActive: true };
     if (branchId) where.branchId = branchId;
     if (query?.category) where.category = query.category;
@@ -198,10 +226,19 @@ export class FinanceService {
       if (query.end) where.date.lte = query.end;
     }
 
-    return prisma.expense.findMany({
+    const page = query?.page || 1;
+    const limit = query?.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await prisma.expense.count({ where });
+    const data = await prisma.expense.findMany({
       where,
       orderBy: { date: 'desc' },
+      skip,
+      take: limit,
     });
+
+    return { data, total };
   }
 
   static async createExpense(orgId: string, data: any, userId: string) {
@@ -288,11 +325,36 @@ export class FinanceService {
         _sum: { amount: true },
       });
 
+      const feeFilter: any = {
+        organizationId: orgId,
+        isActive: true,
+        dueDate: { gte: start, lte: end },
+        status: { in: ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'] },
+      };
+      if (branchId) {
+        feeFilter.branchId = branchId;
+      }
+
+      const pendingFees = await prisma.fee.findMany({
+        where: feeFilter,
+        include: {
+          payments: {
+            where: { isActive: true },
+          },
+        },
+      });
+
+      const pendingAmount = pendingFees.reduce((sum, fee) => {
+        const totalPaid = fee.payments.reduce((pSum, p) => pSum + Number(p.amountPaid), 0);
+        return sum + Math.max(0, Number(fee.amount) - totalPaid);
+      }, 0);
+
       report.push({
         month: months[m],
         revenue: Number(rev._sum.amount || 0),
         expenses: Number(exp._sum.amount || 0),
         profit: Number(rev._sum.amount || 0) - Number(exp._sum.amount || 0),
+        pending: pendingAmount,
       });
     }
 

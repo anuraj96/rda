@@ -9,10 +9,16 @@ export class AuditController {
       const orgId = req.orgId!;
       const branchId = req.branchId; // Locked from tenant isolation
 
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
+      const skip = (page - 1) * limit;
+
       const where: any = { organizationId: orgId };
       if (branchId) {
         where.branchId = branchId;
       }
+
+      const total = await prisma.auditLog.count({ where });
 
       const auditLogs = await prisma.auditLog.findMany({
         where,
@@ -25,10 +31,16 @@ export class AuditController {
           },
         },
         orderBy: { createdAt: 'desc' },
-        take: 100, // Limit to recent 100 logs
+        skip,
+        take: limit,
       });
 
-      return sendResponse(res, 200, 'Audit logs retrieved successfully', auditLogs);
+      return sendResponse(res, 200, 'Audit logs retrieved successfully', auditLogs, {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      });
     } catch (error) {
       next(error);
     }

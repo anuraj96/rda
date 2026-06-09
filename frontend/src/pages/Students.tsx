@@ -33,6 +33,8 @@ export const Students: React.FC = () => {
   const [branchId, setBranchId] = useState('');
   const [courseId, setCourseId] = useState('');
   const [batchId, setBatchId] = useState('');
+  const [status, setStatus] = useState('ACTIVE');
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // Metadata Lists
   const [branches, setBranches] = useState<any[]>([]);
@@ -93,6 +95,7 @@ export const Students: React.FC = () => {
   };
 
   const handleOpenCreateForm = () => {
+    setIsEditMode(false);
     setAdmissionNumber(`ADM-${Math.floor(10000 + Math.random() * 90000)}`);
     setName('');
     setGender('Female');
@@ -106,6 +109,30 @@ export const Students: React.FC = () => {
     setBranchId(user?.branchId || '');
     setCourseId('');
     setBatchId('');
+    setStatus('ACTIVE');
+    setFormError(null);
+    setIsFormOpen(true);
+  };
+
+  const handleOpenEditForm = () => {
+    if (!selectedStudent) return;
+    setIsEditMode(true);
+    setAdmissionNumber(selectedStudent.admissionNumber);
+    setName(selectedStudent.name);
+    setGender(selectedStudent.gender);
+    setDob(selectedStudent.dob ? selectedStudent.dob.split('T')[0] : '');
+    setParentName(selectedStudent.parentName);
+    setParentPhone(selectedStudent.parentPhone);
+    setEmail(selectedStudent.email || '');
+    setAddress(selectedStudent.address);
+    setEmergencyContact(selectedStudent.emergencyContact);
+    setJoiningDate(selectedStudent.joiningDate ? selectedStudent.joiningDate.split('T')[0] : '');
+    setBranchId(selectedStudent.branchId || '');
+    
+    const activeBatch = selectedStudent.batches?.find((b: any) => b.status === 'ACTIVE');
+    setCourseId(activeBatch?.batch?.courseId || '');
+    setBatchId(activeBatch?.batchId || '');
+    setStatus(selectedStudent.status || 'ACTIVE');
     setFormError(null);
     setIsFormOpen(true);
   };
@@ -132,15 +159,21 @@ export const Students: React.FC = () => {
       branchId,
       courseId: courseId || undefined,
       batchId: batchId || undefined,
-      status: 'ACTIVE'
+      status: isEditMode ? status : 'ACTIVE'
     };
 
     try {
-      await api.post('/students', payload);
-      setIsFormOpen(false);
-      fetchStudents();
+      if (isEditMode) {
+        await api.put(`/students/${selectedStudent.id}`, payload);
+        setIsFormOpen(false);
+        selectStudentProfile(selectedStudent.id);
+      } else {
+        await api.post('/students', payload);
+        setIsFormOpen(false);
+        fetchStudents();
+      }
     } catch (err: any) {
-      setFormError(err.response?.data?.message || 'Admission failed');
+      setFormError(err.response?.data?.message || (isEditMode ? 'Update failed' : 'Admission failed'));
     }
   };
 
@@ -250,6 +283,13 @@ export const Students: React.FC = () => {
               }`}>
                 {selectedStudent.status}
               </span>
+              <button
+                onClick={handleOpenEditForm}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary bg-primary/5 hover:bg-primary/10 rounded-xl cursor-pointer"
+              >
+                <Edit2 className="h-4 w-4" />
+                <span>Edit Profile</span>
+              </button>
               <button
                 onClick={() => handleDeleteStudent(selectedStudent.id)}
                 className="px-3 py-1.5 text-xs font-semibold text-rose-500 bg-rose-500/5 hover:bg-rose-500/10 rounded-xl"
@@ -673,7 +713,7 @@ export const Students: React.FC = () => {
               
               {/* Header */}
               <div className="flex justify-between items-center pb-4 border-b border-border">
-                <h3 className="text-lg font-bold">New Student Admission Form</h3>
+                <h3 className="text-lg font-bold">{isEditMode ? 'Edit Student Profile' : 'New Student Admission Form'}</h3>
                 <button
                   onClick={() => setIsFormOpen(false)}
                   className="p-1 hover:bg-secondary rounded-lg"
@@ -808,6 +848,21 @@ export const Students: React.FC = () => {
                   />
                 </div>
 
+                {isEditMode && (
+                  <div className="space-y-1">
+                    <label className="font-bold text-muted-foreground uppercase">Student Status *</label>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                      className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none"
+                    >
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                      <option value="DROPOUT">DROPOUT</option>
+                    </select>
+                  </div>
+                )}
+
                 <div className="space-y-1">
                   <label className="font-bold text-muted-foreground uppercase">Branch Location *</label>
                   <select
@@ -871,7 +926,7 @@ export const Students: React.FC = () => {
                 onClick={handleSubmitAdmission}
                 className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-2 px-4 rounded-xl shadow-lg"
               >
-                Complete Admission
+                {isEditMode ? 'Save Changes' : 'Complete Admission'}
               </button>
             </div>
 

@@ -16,9 +16,14 @@ import {
   ResponsiveContainer
 } from 'recharts';
 
+import { useLocation } from 'react-router-dom';
+
 export const Finances: React.FC = () => {
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'fees' | 'defaulters' | 'income' | 'expenses' | 'pl'>('fees');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<'fees' | 'defaulters' | 'income' | 'expenses' | 'pl'>(() => {
+    return window.location.pathname === '/expenses' ? 'income' : 'fees';
+  });
   const [loading, setLoading] = useState(true);
 
   // Lead States
@@ -31,6 +36,24 @@ export const Finances: React.FC = () => {
   // Search & Filters
   const [search, setSearch] = useState('');
   const [feeStatus, setFeeStatus] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('');
+
+  // Pagination States
+  const [feesPage, setFeesPage] = useState(1);
+  const [feesTotal, setFeesTotal] = useState(0);
+  const [feesTotalPages, setFeesTotalPages] = useState(1);
+
+  const [defPage, setDefPage] = useState(1);
+  const [defTotal, setDefTotal] = useState(0);
+  const [defTotalPages, setDefTotalPages] = useState(1);
+
+  const [incomePage, setIncomePage] = useState(1);
+  const [incomeTotal, setIncomeTotal] = useState(0);
+  const [incomeTotalPages, setIncomeTotalPages] = useState(1);
+
+  const [expPage, setExpPage] = useState(1);
+  const [expTotal, setExpTotal] = useState(0);
+  const [expTotalPages, setExpTotalPages] = useState(1);
 
   // Collect Fee Modal States
   const [isCollectOpen, setIsCollectOpen] = useState(false);
@@ -52,22 +75,56 @@ export const Finances: React.FC = () => {
   // Receipt modal state
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
 
+  // Generate list of due months statically (e.g., last 12 months and next 6 months)
+  const uniqueMonths = (() => {
+    const list = [];
+    const now = new Date();
+    // Go from 6 months in the future to 12 months in the past
+    for (let i = -6; i <= 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      list.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    return list;
+  })();
+
+  const formatMonthYear = (monthStr: string) => {
+    if (!monthStr) return '';
+    const [year, month] = monthStr.split('-');
+    const date = new Date(Number(year), Number(month) - 1, 1);
+    return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+  };
+
+  const filteredFees = fees;
+
+  const isExpensesRoute = location.pathname === '/expenses';
+  const availableTabs = isExpensesRoute
+    ? (['income', 'expenses', 'pl'] as const)
+    : (['fees', 'defaulters'] as const);
+
   const fetchFinancials = async () => {
     try {
       setLoading(true);
       if (activeTab === 'fees') {
-        const res = await api.get('/fees', { params: { search, status: feeStatus } });
+        const res = await api.get('/fees', { params: { search, status: feeStatus, month: selectedMonth, page: feesPage, limit: 10 } });
         setFees(res.data.data);
+        setFeesTotal(res.data.meta?.total || 0);
+        setFeesTotalPages(res.data.meta?.totalPages || 1);
       } else if (activeTab === 'defaulters') {
-        const res = await api.get('/fees/defaulters');
+        const res = await api.get('/fees/defaulters', { params: { page: defPage, limit: 10 } });
         setDefaulters(res.data.data);
+        setDefTotal(res.data.meta?.total || 0);
+        setDefTotalPages(res.data.meta?.totalPages || 1);
       } else if (activeTab === 'income') {
         // Collect incomes from fees
-        const res = await api.get('/fees', { params: { status: 'PAID' } });
+        const res = await api.get('/fees', { params: { status: 'PAID', page: incomePage, limit: 10 } });
         setFees(res.data.data);
+        setIncomeTotal(res.data.meta?.total || 0);
+        setIncomeTotalPages(res.data.meta?.totalPages || 1);
       } else if (activeTab === 'expenses') {
-        const res = await api.get('/expenses');
+        const res = await api.get('/expenses', { params: { page: expPage, limit: 10 } });
         setExpenses(res.data.data);
+        setExpTotal(res.data.meta?.total || 0);
+        setExpTotalPages(res.data.meta?.totalPages || 1);
       } else if (activeTab === 'pl') {
         const res = await api.get('/finances/pl');
         setProfitLoss(res.data.data);
@@ -85,8 +142,16 @@ export const Finances: React.FC = () => {
   };
 
   useEffect(() => {
+    if (location.pathname === '/expenses') {
+      setActiveTab('income');
+    } else if (location.pathname === '/fees') {
+      setActiveTab('fees');
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
     fetchFinancials();
-  }, [activeTab, search, feeStatus]);
+  }, [activeTab, search, feeStatus, selectedMonth, feesPage, defPage, incomePage, expPage]);
 
   useEffect(() => {
     fetchBranches();
@@ -195,10 +260,10 @@ export const Finances: React.FC = () => {
 
       {/* Tabs list */}
       <div className="flex border-b border-border text-sm font-semibold gap-4 overflow-x-auto">
-        {(['fees', 'defaulters', 'income', 'expenses', 'pl'] as const).map(tab => (
+        {availableTabs.map(tab => (
           <button
             key={tab}
-            onClick={() => { setActiveTab(tab); setSearch(''); setFeeStatus(''); }}
+            onClick={() => { setActiveTab(tab); setSearch(''); setFeeStatus(''); setSelectedMonth(''); }}
             className={`pb-2.5 px-1 capitalize transition-all border-b-2 ${
               activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
@@ -220,7 +285,7 @@ export const Finances: React.FC = () => {
         {/* TAB 1: TUITION FEES */}
         {activeTab === 'fees' && (
           <div className="space-y-4 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-card border border-border p-4 rounded-2xl">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-card border border-border p-4 rounded-2xl">
               <div className="relative col-span-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
@@ -244,6 +309,18 @@ export const Finances: React.FC = () => {
                   <option value="OVERDUE">Overdue</option>
                 </select>
               </div>
+              <div>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full bg-secondary border border-border px-3 py-2 rounded-xl outline-none"
+                >
+                  <option value="">All Due Months</option>
+                  {uniqueMonths.map(m => (
+                    <option key={m} value={m}>{formatMonthYear(m)}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="border border-border rounded-2xl bg-card shadow-sm overflow-hidden">
@@ -261,10 +338,10 @@ export const Finances: React.FC = () => {
                 <tbody className="divide-y divide-border">
                   {loading ? (
                     <tr><td colSpan={6} className="p-6 text-center animate-pulse text-muted-foreground">Loading fee ledger...</td></tr>
-                  ) : fees.length === 0 ? (
+                  ) : filteredFees.length === 0 ? (
                     <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No invoices registered.</td></tr>
                   ) : (
-                    fees.map(f => (
+                    filteredFees.map(f => (
                       <tr key={f.id} className="hover:bg-secondary/10">
                         <td className="p-3">
                           <div className="font-semibold text-foreground">{f.student?.name}</div>
@@ -306,6 +383,34 @@ export const Finances: React.FC = () => {
                 </tbody>
               </table>
             </div>
+            
+            {/* Pagination Controls */}
+            {!loading && filteredFees.length > 0 && (
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2 text-xs font-semibold">
+                <span className="text-muted-foreground">
+                  Showing invoices {((feesPage - 1) * 10) + 1} - {Math.min(feesPage * 10, feesTotal)} of {feesTotal} total
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setFeesPage(p => Math.max(1, p - 1))}
+                    disabled={feesPage === 1}
+                    className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <span className="flex items-center px-2 text-foreground">
+                    Page {feesPage} of {feesTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setFeesPage(p => Math.min(feesTotalPages, p + 1))}
+                    disabled={feesPage >= feesTotalPages}
+                    className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -352,6 +457,34 @@ export const Finances: React.FC = () => {
                 </tbody>
               </table>
             </div>
+            
+            {/* Pagination Controls */}
+            {!loading && defaulters.length > 0 && (
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2 text-xs font-semibold">
+                <span className="text-muted-foreground">
+                  Showing defaulters {((defPage - 1) * 10) + 1} - {Math.min(defPage * 10, defTotal)} of {defTotal} total
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setDefPage(p => Math.max(1, p - 1))}
+                    disabled={defPage === 1}
+                    className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <span className="flex items-center px-2 text-foreground">
+                    Page {defPage} of {defTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setDefPage(p => Math.min(defTotalPages, p + 1))}
+                    disabled={defPage >= defTotalPages}
+                    className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -401,6 +534,34 @@ export const Finances: React.FC = () => {
                 </tbody>
               </table>
             </div>
+            
+            {/* Pagination Controls */}
+            {!loading && fees.length > 0 && (
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2 text-xs font-semibold">
+                <span className="text-muted-foreground">
+                  Showing transactions {((incomePage - 1) * 10) + 1} - {Math.min(incomePage * 10, incomeTotal)} of {incomeTotal} total
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setIncomePage(p => Math.max(1, p - 1))}
+                    disabled={incomePage === 1}
+                    className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <span className="flex items-center px-2 text-foreground">
+                    Page {incomePage} of {incomeTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setIncomePage(p => Math.min(incomeTotalPages, p + 1))}
+                    disabled={incomePage >= incomeTotalPages}
+                    className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -458,6 +619,34 @@ export const Finances: React.FC = () => {
                 </tbody>
               </table>
             </div>
+            
+            {/* Pagination Controls */}
+            {!loading && expenses.length > 0 && (
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2 text-xs font-semibold">
+                <span className="text-muted-foreground">
+                  Showing expenses {((expPage - 1) * 10) + 1} - {Math.min(expPage * 10, expTotal)} of {expTotal} total
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setExpPage(p => Math.max(1, p - 1))}
+                    disabled={expPage === 1}
+                    className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <span className="flex items-center px-2 text-foreground">
+                    Page {expPage} of {expTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setExpPage(p => Math.min(expTotalPages, p + 1))}
+                    disabled={expPage >= expTotalPages}
+                    className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -474,8 +663,9 @@ export const Finances: React.FC = () => {
                     <YAxis tickLine={false} axisLine={false} fontSize={11} />
                     <Tooltip formatter={(v) => `₹${Number(v).toLocaleString()}`} />
                     <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="revenue" fill="#10b981" name="Income (Revenue)" radius={[3, 3, 0, 0]} barSize={20} />
-                    <Bar dataKey="expenses" fill="#ef4444" name="Expenses" radius={[3, 3, 0, 0]} barSize={20} />
+                    <Bar dataKey="revenue" fill="#10b981" name="Income (Revenue)" radius={[3, 3, 0, 0]} barSize={15} />
+                    <Bar dataKey="expenses" fill="#ef4444" name="Expenses" radius={[3, 3, 0, 0]} barSize={15} />
+                    <Bar dataKey="pending" fill="#f59e0b" name="Pending Fees" radius={[3, 3, 0, 0]} barSize={15} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -488,8 +678,9 @@ export const Finances: React.FC = () => {
                   <div>
                     <h5 className="font-bold text-sm text-foreground">{m.month} Financials</h5>
                     <div className="space-y-0.5 text-muted-foreground mt-1 text-[10px]">
-                      <div>Incomes: ₹{m.revenue.toLocaleString()}</div>
-                      <div>Expenses: ₹{m.expenses.toLocaleString()}</div>
+                      <div className="text-emerald-500">Incomes (Collected): ₹{m.revenue.toLocaleString()}</div>
+                      <div className="text-rose-500">Expenses: ₹{m.expenses.toLocaleString()}</div>
+                      <div className="text-amber-500 font-bold">Pending Invoices: ₹{(m.pending || 0).toLocaleString()}</div>
                     </div>
                   </div>
                   <div className={`text-right font-black text-sm ${m.profit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import {
@@ -8,11 +9,20 @@ import {
 
 export const CoursesAndBatches: React.FC = () => {
   const { user } = useAuthStore();
+  const location = useLocation();
   const [courses, setCourses] = useState<any[]>([]);
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<any>(null);
   const [activeWorkspace, setActiveWorkspace] = useState<'courses' | 'batches'>('batches');
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'warning' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'warning' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 4000);
+  };
 
   // Form Controls
   const [isCourseFormOpen, setIsCourseFormOpen] = useState(false);
@@ -84,6 +94,15 @@ export const CoursesAndBatches: React.FC = () => {
     fetchData();
     fetchMetadata();
   }, []);
+
+  // Sync tab with route path
+  useEffect(() => {
+    if (location.pathname === '/courses') {
+      setActiveWorkspace('courses');
+    } else if (location.pathname === '/batches') {
+      setActiveWorkspace('batches');
+    }
+  }, [location.pathname]);
 
   // Detailed Batch Select
   const selectBatch = async (id: string) => {
@@ -197,16 +216,20 @@ export const CoursesAndBatches: React.FC = () => {
     }));
 
     try {
-      await api.post('/attendance/student', {
+      const res = await api.post('/attendance/student', {
         batchId: selectedBatch.id,
         branchId: selectedBatch.branchId,
         date: new Date(attendanceDate).toISOString(),
         records: formattedRecords
       });
       setIsAttendanceOpen(false);
-      alert('Attendance saved successfully');
+      if (res.data.data?.alreadyMarked) {
+        showToast('Attendance is already marked for this batch on this date', 'warning');
+      } else {
+        showToast('Attendance saved successfully', 'success');
+      }
     } catch {
-      alert('Failed to mark attendance');
+      showToast('Failed to mark attendance', 'error');
     }
   };
 
@@ -393,24 +416,17 @@ export const CoursesAndBatches: React.FC = () => {
         <div className="space-y-6">
           {/* Header Workspace Options */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="flex border-b border-border text-sm font-semibold gap-4">
-              <button
-                onClick={() => setActiveWorkspace('batches')}
-                className={`pb-2.5 px-1 capitalize transition-all border-b-2 ${
-                  activeWorkspace === 'batches' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Timetables & Batches
-              </button>
-              <button
-                onClick={() => setActiveWorkspace('courses')}
-                className={`pb-2.5 px-1 capitalize transition-all border-b-2 ${
-                  activeWorkspace === 'courses' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Dance Courses Catalog
-              </button>
-            </div>
+            {activeWorkspace === 'courses' ? (
+              <div>
+                <h2 className="text-2xl font-extrabold tracking-tight">Dance Courses Catalog</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">Manage and organize your dance class syllabus and fee structures.</p>
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-2xl font-extrabold tracking-tight">Timetables & Batches</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">Manage student classes, schedules, and instructor assignments.</p>
+              </div>
+            )}
             
             {activeWorkspace === 'courses' ? (
               <button
@@ -873,6 +889,15 @@ export const CoursesAndBatches: React.FC = () => {
               <button onClick={() => setIsEnrollOpen(false)} className="w-full bg-secondary border border-border py-2 px-4 rounded-xl font-bold">Close Drawer</button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-card border border-border px-4 py-3 rounded-2xl shadow-2xl animate-scale-in text-xs max-w-sm">
+          <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+            toast.type === 'success' ? 'bg-emerald-500 animate-pulse' : toast.type === 'warning' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500 animate-pulse'
+          }`} />
+          <span className="font-bold text-foreground leading-relaxed">{toast.message}</span>
         </div>
       )}
 

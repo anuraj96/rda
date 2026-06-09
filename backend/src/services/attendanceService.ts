@@ -6,27 +6,31 @@ export class AttendanceService {
   static async markStudentAttendance(orgId: string, branchId: string, data: any, userId: string) {
     const { batchId, date, records } = data;
     const dateOnly = new Date(date);
-    dateOnly.setHours(0, 0, 0, 0);
+    dateOnly.setUTCHours(0, 0, 0, 0);
 
     return prisma.$transaction(async (tx) => {
+      let changed = false;
       const savedRecords = [];
       for (const record of records) {
+        const existing = await tx.attendance.findFirst({
+          where: {
+            organizationId: orgId,
+            batchId,
+            studentId: record.studentId,
+            date: dateOnly,
+            type: 'STUDENT',
+            isActive: true,
+          },
+          select: { id: true, status: true, remarks: true }
+        });
+
+        if (!existing || existing.status !== record.status || existing.remarks !== (record.remarks || null)) {
+          changed = true;
+        }
+
         const attendance = await tx.attendance.upsert({
           where: {
-            // Since we don't have a direct composite unique constraint on (batchId, studentId, date) in the schema,
-            // we will query first to check if there is an existing record, or use findFirst + create/update.
-            // Let's find first to avoid unique constraint violations.
-            id: (await tx.attendance.findFirst({
-              where: {
-                organizationId: orgId,
-                batchId,
-                studentId: record.studentId,
-                date: dateOnly,
-                type: 'STUDENT',
-                isActive: true,
-              },
-              select: { id: true },
-            }))?.id || '00000000-0000-0000-0000-000000000000',
+            id: existing?.id || '00000000-0000-0000-0000-000000000000',
           },
           create: {
             organizationId: orgId,
@@ -62,13 +66,16 @@ export class AttendanceService {
         },
       });
 
-      return savedRecords;
+      return {
+        records: savedRecords,
+        alreadyMarked: !changed
+      };
     });
   }
 
   static async getBatchAttendanceForDate(orgId: string, batchId: string, date: Date) {
     const dateOnly = new Date(date);
-    dateOnly.setHours(0, 0, 0, 0);
+    dateOnly.setUTCHours(0, 0, 0, 0);
 
     return prisma.attendance.findMany({
       where: {
@@ -117,7 +124,7 @@ export class AttendanceService {
   // Staff Attendance
   static async staffCheckIn(orgId: string, branchId: string, userId: string) {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
 
     // Check if already checked in today
     const existing = await prisma.attendance.findFirst({
@@ -149,7 +156,7 @@ export class AttendanceService {
 
   static async staffCheckOut(orgId: string, userId: string) {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
 
     const existing = await prisma.attendance.findFirst({
       where: {

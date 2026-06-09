@@ -11,9 +11,17 @@ export class FeeController {
       const status = req.query.status as string;
       const studentId = req.query.studentId as string;
       const search = req.query.search as string;
+      const month = req.query.month as string;
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
 
-      const fees = await FinanceService.listFees(orgId, branchId, { status, studentId, search });
-      return sendResponse(res, 200, 'Fees list retrieved successfully', fees);
+      const { data, total } = await FinanceService.listFees(orgId, branchId, { status, studentId, search, month, page, limit });
+      return sendResponse(res, 200, 'Fees list retrieved successfully', data, {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      });
     } catch (error) {
       next(error);
     }
@@ -59,9 +67,16 @@ export class FeeController {
     try {
       const orgId = req.orgId!;
       const branchId = req.branchId;
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
 
-      const defaulters = await FinanceService.getDefaulters(orgId, branchId);
-      return sendResponse(res, 200, 'Overdue fees and defaulters list retrieved successfully', defaulters);
+      const { data, total } = await FinanceService.getDefaulters(orgId, branchId, { page, limit });
+      return sendResponse(res, 200, 'Overdue fees and defaulters list retrieved successfully', data, {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      });
     } catch (error) {
       next(error);
     }

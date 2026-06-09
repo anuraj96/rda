@@ -11,12 +11,19 @@ export class ExpenseController {
       const category = req.query.category as string;
       const startStr = req.query.start as string;
       const endStr = req.query.end as string;
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
 
       const start = startStr ? new Date(startStr) : undefined;
       const end = endStr ? new Date(endStr) : undefined;
 
-      const expenses = await FinanceService.listExpenses(orgId, branchId, { category, start, end });
-      return sendResponse(res, 200, 'Expenses list retrieved successfully', expenses);
+      const { data, total } = await FinanceService.listExpenses(orgId, branchId, { category, start, end, page, limit });
+      return sendResponse(res, 200, 'Expenses list retrieved successfully', data, {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      });
     } catch (error) {
       next(error);
     }

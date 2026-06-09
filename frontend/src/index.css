@@ -27,28 +27,6 @@
     --ring: 169 39% 25%;
     --radius: 0.75rem;
   }
-
-  .dark {
-    --background: 169 30% 7%;
-    --foreground: 150 17% 95%;
-    --card: 169 30% 10%;
-    --card-foreground: 150 17% 95%;
-    --popover: 169 30% 7%;
-    --popover-foreground: 150 17% 95%;
-    --primary: 169 39% 35%;
-    --primary-foreground: 150 17% 97%;
-    --secondary: 169 25% 16%;
-    --secondary-foreground: 150 17% 90%;
-    --muted: 169 25% 16%;
-    --muted-foreground: 150 15% 58%;
-    --accent: 169 25% 16%;
-    --accent-foreground: 150 17% 90%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 150 17% 95%;
-    --border: 169 25% 16%;
-    --input: 169 25% 16%;
-    --ring: 169 39% 35%;
-  }
 }
 
 @layer base {
@@ -71,11 +49,6 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.dark .glass-card {
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
 
 /* Skeleton loader effect */
 .skeleton {

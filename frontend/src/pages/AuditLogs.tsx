@@ -5,20 +5,27 @@ import { ShieldAlert, Terminal, Clock, ShieldCheck, User } from 'lucide-react';
 export const AuditLogs: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  const fetchLogs = async (currentPage: number) => {
+    try {
+      setLoading(true);
+      const res = await api.get('/audit', { params: { page: currentPage, limit: 10 } });
+      setLogs(res.data.data);
+      if (res.data.meta) {
+        setTotalPages(res.data.meta.totalPages || 1);
+        setTotalItems(res.data.meta.total || 0);
+      }
+    } catch {} finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchLogs = async () => {
-      try {
-        setLoading(true);
-        const res = await api.get('/audit');
-        setLogs(res.data.data);
-      } catch {} finally {
-        setLoading(false);
-      }
-    };
-
-    fetchLogs();
-  }, []);
+    fetchLogs(page);
+  }, [page]);
 
   return (
     <div className="space-y-6">
@@ -102,6 +109,34 @@ export const AuditLogs: React.FC = () => {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination controls */}
+      {!loading && logs.length > 0 && (
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2 text-xs font-semibold">
+          <span className="text-muted-foreground">
+            Showing logs {((page - 1) * 10) + 1} - {Math.min(page * 10, totalItems)} of {totalItems} total logs
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            >
+              Previous
+            </button>
+            <span className="flex items-center px-2 text-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            >
+              Next
+            </button>
           </div>
         </div>
       )}
