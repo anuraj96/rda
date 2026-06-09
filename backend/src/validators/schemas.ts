@@ -129,4 +129,5 @@ export const eventSchema = z.object({
   budget: z.number().nonnegative('Budget cannot be negative'),
   description: z.string().optional().nullable(),
   status: z.enum(['UPCOMING', 'COMPLETED', 'CANCELLED']).default('UPCOMING'),
+  branchId: z.string().uuid('Invalid Branch ID').optional().nullable(),
 });

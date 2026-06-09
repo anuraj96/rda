@@ -9,6 +9,9 @@ export class EventService {
 
     return prisma.event.findMany({
       where,
+      include: {
+        branch: { select: { id: true, name: true } },
+      },
       orderBy: { date: 'asc' },
     });
   }

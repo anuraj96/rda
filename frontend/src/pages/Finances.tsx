@@ -129,7 +129,7 @@ export const Finances: React.FC = () => {
         const res = await api.get('/finances/pl');
         setProfitLoss(res.data.data);
       }
-    } catch {} finally {
+    } catch { } finally {
       setLoading(false);
     }
   };
@@ -138,7 +138,7 @@ export const Finances: React.FC = () => {
     try {
       const res = await api.get('/branches');
       setBranches(res.data.data);
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -229,7 +229,7 @@ export const Finances: React.FC = () => {
       try {
         await api.delete(`/expenses/${id}`);
         fetchFinancials();
-      } catch {}
+      } catch { }
     }
   };
 
@@ -239,14 +239,14 @@ export const Finances: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Title Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-extrabold tracking-tight">Financial Hub</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Collect student registration and tuition fees, track bills, log expenses, and check P&L metrics.</p>
         </div>
-        
+
         {activeTab === 'expenses' && (
           <button
             onClick={openExpenseModal}
@@ -264,17 +264,16 @@ export const Finances: React.FC = () => {
           <button
             key={tab}
             onClick={() => { setActiveTab(tab); setSearch(''); setFeeStatus(''); setSelectedMonth(''); }}
-            className={`pb-2.5 px-1 capitalize transition-all border-b-2 ${
-              activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+            className={`pb-2.5 px-1 capitalize transition-all border-b-2 ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
           >
             {tab === 'fees'
               ? 'Tuition Bills'
               : tab === 'defaulters'
-              ? 'Defaulters Ledger'
-              : tab === 'pl'
-              ? 'Profit & Loss Chart'
-              : tab}
+                ? 'Defaulters Ledger'
+                : tab === 'pl'
+                  ? 'Profit & Loss Chart'
+                  : tab}
           </button>
         ))}
       </div>
@@ -351,13 +350,12 @@ export const Finances: React.FC = () => {
                         <td className="p-3 font-bold">₹{Number(f.amount).toLocaleString()}</td>
                         <td className="p-3 text-muted-foreground">{new Date(f.dueDate).toLocaleDateString()}</td>
                         <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${
-                            f.status === 'PAID'
+                          <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${f.status === 'PAID'
                               ? 'bg-emerald-500/10 text-emerald-500'
                               : f.status === 'PARTIALLY_PAID'
-                              ? 'bg-blue-500/10 text-blue-500'
-                              : 'bg-rose-500/10 text-rose-500'
-                          }`}>
+                                ? 'bg-blue-500/10 text-blue-500'
+                                : 'bg-rose-500/10 text-rose-500'
+                            }`}>
                             {f.status}
                           </span>
                         </td>
@@ -383,7 +381,7 @@ export const Finances: React.FC = () => {
                 </tbody>
               </table>
             </div>
-            
+
             {/* Pagination Controls */}
             {!loading && filteredFees.length > 0 && (
               <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2 text-xs font-semibold">
@@ -457,7 +455,7 @@ export const Finances: React.FC = () => {
                 </tbody>
               </table>
             </div>
-            
+
             {/* Pagination Controls */}
             {!loading && defaulters.length > 0 && (
               <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2 text-xs font-semibold">
@@ -534,7 +532,7 @@ export const Finances: React.FC = () => {
                 </tbody>
               </table>
             </div>
-            
+
             {/* Pagination Controls */}
             {!loading && fees.length > 0 && (
               <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2 text-xs font-semibold">
@@ -619,7 +617,7 @@ export const Finances: React.FC = () => {
                 </tbody>
               </table>
             </div>
-            
+
             {/* Pagination Controls */}
             {!loading && expenses.length > 0 && (
               <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2 text-xs font-semibold">
@@ -880,7 +878,7 @@ export const Finances: React.FC = () => {
       {selectedReceipt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-md bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-6 animate-scale-in text-xs text-foreground">
-            
+
             {/* Header */}
             <div className="flex justify-between items-center pb-2 border-b border-border">
               <h3 className="font-extrabold text-sm text-primary uppercase">RUDRESHWAR DANCE ACADEMY RECEIPT</h3>

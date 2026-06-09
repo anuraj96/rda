@@ -27,7 +27,7 @@ export const CoursesAndBatches: React.FC = () => {
   // Form Controls
   const [isCourseFormOpen, setIsCourseFormOpen] = useState(false);
   const [isBatchFormOpen, setIsBatchFormOpen] = useState(false);
-  const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
+  const [isAttendanceMode, setIsAttendanceMode] = useState(false);
   const [isEnrollOpen, setIsEnrollOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -54,7 +54,7 @@ export const CoursesAndBatches: React.FC = () => {
 
   // Attendance Marking Fields
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
-  const [attendanceRecords, setAttendanceRecords] = useState<Record<string, { status: 'PRESENT' | 'ABSENT', remarks: string }>>({});
+  const [attendanceRecords, setAttendanceRecords] = useState<Record<string, { status: 'PRESENT' | 'ABSENT' | 'LEAVE' | '', remarks: string }>>({});
 
   // Enroll Fields
   const [unassignedStudents, setUnassignedStudents] = useState<any[]>([]);
@@ -73,7 +73,7 @@ export const CoursesAndBatches: React.FC = () => {
       ]);
       setCourses(cRes.data.data);
       setBatches(bRes.data.data);
-    } catch {} finally {
+    } catch { } finally {
       setLoading(false);
     }
   };
@@ -87,7 +87,7 @@ export const CoursesAndBatches: React.FC = () => {
       // Instructors filter
       setInstructors(staffRes.data.data.filter((s: any) => s.role?.name === 'INSTRUCTOR'));
       setBranches(branchesRes.data.data);
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -109,7 +109,7 @@ export const CoursesAndBatches: React.FC = () => {
     try {
       const res = await api.get(`/batches/${id}`);
       setSelectedBatch(res.data.data);
-    } catch {}
+    } catch { }
   };
 
   // Course Submit
@@ -178,30 +178,62 @@ export const CoursesAndBatches: React.FC = () => {
   };
 
   // Setup Attendance Marking List
-  const openAttendanceDrawer = async () => {
-    if (!selectedBatch) return;
-    
-    // Set default records to PRESENT for all enrolled
-    const defaultRecs: Record<string, { status: 'PRESENT' | 'ABSENT', remarks: string }> = {};
-    
-    try {
-      // Pull already marked attendance if any
-      const res = await api.get(`/attendance/student/batch/${selectedBatch.id}`, {
-        params: { date: attendanceDate }
-      });
-      const marked = res.data.data;
+  const enterAttendanceMode = () => {
+    setIsAttendanceMode(true);
+  };
 
-      selectedBatch.students.forEach((s: any) => {
-        const found = marked.find((m: any) => m.studentId === s.student.id);
-        defaultRecs[s.student.id] = {
-          status: found ? found.status : 'PRESENT',
-          remarks: found ? (found.remarks || '') : ''
-        };
-      });
+  // Sync and fetch marked attendance records on mode, batch, or date change
+  useEffect(() => {
+    if (isAttendanceMode && selectedBatch) {
+      const loadAttendanceRecords = async () => {
+        const defaultRecs: Record<string, { status: 'PRESENT' | 'ABSENT' | 'LEAVE' | '', remarks: string }> = {};
+        try {
+          const res = await api.get(`/attendance/student/batch/${selectedBatch.id}`, {
+            params: { date: attendanceDate }
+          });
+          const marked = res.data.data;
 
-      setAttendanceRecords(defaultRecs);
-      setIsAttendanceOpen(true);
-    } catch {}
+          selectedBatch.students.forEach((s: any) => {
+            const found = marked.find((m: any) => m.studentId === s.student.id);
+            defaultRecs[s.student.id] = {
+              status: found ? found.status : '',
+              remarks: found ? (found.remarks || '') : ''
+            };
+          });
+          setAttendanceRecords(defaultRecs);
+        } catch {
+          selectedBatch.students.forEach((s: any) => {
+            defaultRecs[s.student.id] = {
+              status: '',
+              remarks: ''
+            };
+          });
+          setAttendanceRecords(defaultRecs);
+        }
+      };
+      loadAttendanceRecords();
+    }
+  }, [isAttendanceMode, selectedBatch?.id, attendanceDate]);
+
+  // Bulk marking utilities
+  const markAllPresent = () => {
+    setAttendanceRecords(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(studentId => {
+        next[studentId] = { ...next[studentId], status: 'PRESENT' };
+      });
+      return next;
+    });
+  };
+
+  const markAllAbsent = () => {
+    setAttendanceRecords(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(studentId => {
+        next[studentId] = { ...next[studentId], status: 'ABSENT' };
+      });
+      return next;
+    });
   };
 
   // Mark Student Attendance
@@ -211,7 +243,7 @@ export const CoursesAndBatches: React.FC = () => {
 
     const formattedRecords = Object.keys(attendanceRecords).map((studentId) => ({
       studentId,
-      status: attendanceRecords[studentId].status,
+      status: attendanceRecords[studentId].status || 'PRESENT',
       remarks: attendanceRecords[studentId].remarks || null
     }));
 
@@ -222,7 +254,7 @@ export const CoursesAndBatches: React.FC = () => {
         date: new Date(attendanceDate).toISOString(),
         records: formattedRecords
       });
-      setIsAttendanceOpen(false);
+      setIsAttendanceMode(false);
       if (res.data.data?.alreadyMarked) {
         showToast('Attendance is already marked for this batch on this date', 'warning');
       } else {
@@ -241,14 +273,14 @@ export const CoursesAndBatches: React.FC = () => {
       const res = await api.get('/students');
       const allStudents = res.data.data;
       const enrolledIds = selectedBatch.students.map((s: any) => s.student.id);
-      
+
       const unassigned = allStudents.filter(
         (s: any) => s.branchId === selectedBatch.branchId && s.status === 'ACTIVE' && !enrolledIds.includes(s.id)
       );
 
       setUnassignedStudents(unassigned);
       setIsEnrollOpen(true);
-    } catch {}
+    } catch { }
   };
 
   const handleEnrollStudent = async (studentId: string) => {
@@ -259,7 +291,7 @@ export const CoursesAndBatches: React.FC = () => {
       });
       setIsEnrollOpen(false);
       selectBatch(selectedBatch.id);
-    } catch {}
+    } catch { }
   };
 
   const handleUnenrollStudent = async (studentId: string) => {
@@ -270,7 +302,7 @@ export const CoursesAndBatches: React.FC = () => {
           studentIds: [studentId]
         });
         selectBatch(selectedBatch.id);
-      } catch {}
+      } catch { }
     }
   };
 
@@ -317,97 +349,271 @@ export const CoursesAndBatches: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Detail Workspace View or Grid Dashboard */}
       {selectedBatch ? (
-        
-        /* ========================================================= */
-        /* CLASS BATCH DETAILS & STUDENT ENROLLMENTS                 */
-        /* ========================================================= */
-        <div className="space-y-6">
-          <button
-            onClick={() => { setSelectedBatch(null); fetchData(); }}
-            className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground bg-secondary border border-border px-3 py-1.5 rounded-xl transition-all"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back to Timetables</span>
-          </button>
+        isAttendanceMode ? (
+          /* ========================================================= */
+          /* DAILY ATTENDANCE MARKING PAGE                             */
+          /* ========================================================= */
+          <div className="space-y-6">
+            <button
+              onClick={() => { setIsAttendanceMode(false); }}
+              className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground bg-secondary border border-border px-3 py-1.5 rounded-xl transition-all mb-4 cursor-pointer"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Batch Details</span>
+            </button>
 
-          {/* Header Summary */}
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between gap-6">
-            <div className="flex flex-col md:flex-row items-center gap-5">
-              <div className="h-16 w-16 bg-primary text-primary-foreground font-black text-2xl flex items-center justify-center rounded-2xl shadow-lg">
-                B
-              </div>
-              <div className="text-center md:text-left space-y-1">
-                <h2 className="text-xl font-extrabold">{selectedBatch.name}</h2>
-                <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
-                  <span className="text-[10px] bg-secondary text-primary font-bold px-2 py-0.5 rounded tracking-wide">{selectedBatch.course?.name}</span>
-                  <span className="text-[10px] text-muted-foreground">• Schedule: {selectedBatch.schedule}</span>
-                  <span className="text-[10px] text-muted-foreground">• Teacher: {selectedBatch.instructor?.name}</span>
+            {/* Attendance Page Header Info */}
+            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-primary">
+                  <CheckSquare className="h-5 w-5" />
+                  <h2 className="text-xl font-extrabold text-foreground">Mark Student Attendance</h2>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-bold text-foreground bg-secondary text-primary px-2 py-0.5 rounded">{selectedBatch.name}</span>
+                  <span>•</span>
+                  <span>Course: {selectedBatch.course?.name}</span>
+                  <span>•</span>
+                  <span>Teacher: {selectedBatch.instructor?.name}</span>
+                  <span>•</span>
+                  <span>Schedule: {selectedBatch.schedule}</span>
                 </div>
               </div>
+
+              {/* Class Date Input */}
+              <div className="flex items-center gap-3 bg-secondary border border-border px-4 py-2 rounded-xl">
+                <label className="text-xs font-bold text-muted-foreground uppercase whitespace-nowrap">Class Date</label>
+                <input
+                  type="date"
+                  value={attendanceDate}
+                  max={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setAttendanceDate(e.target.value)}
+                  className="bg-card border border-border px-3 py-1.5 rounded-lg outline-none font-bold text-xs"
+                />
+              </div>
             </div>
 
-            <div className="flex items-center justify-center gap-2 text-xs">
-              <button
-                onClick={openAttendanceDrawer}
-                className="flex items-center gap-1.5 bg-primary text-primary-foreground font-bold px-4 py-2 rounded-xl"
-              >
-                <CheckSquare className="h-4 w-4" />
-                <span>Daily Attendance Checklist</span>
-              </button>
-              <button
-                onClick={openEnrollDrawer}
-                className="flex items-center gap-1.5 bg-secondary text-foreground border border-border font-bold px-4 py-2 rounded-xl"
-              >
-                <PlusCircle className="h-4 w-4" />
-                <span>Enroll Student</span>
-              </button>
-            </div>
-          </div>
+            {/* Checklist Table */}
+            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border pb-4">
+                <div>
+                  <h3 className="font-extrabold text-sm text-primary uppercase">Student Attendance Checklist</h3>
+                  <p className="text-xs text-muted-foreground">Record daily check-ins. Toggles save temporarily in page state; save to database with "Save Attendance".</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={markAllPresent}
+                    className="text-xs bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-500 font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Mark All Present
+                  </button>
+                  <button
+                    type="button"
+                    onClick={markAllAbsent}
+                    className="text-xs bg-rose-500/10 hover:bg-rose-500/25 text-rose-500 font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Mark All Absent
+                  </button>
+                </div>
+              </div>
 
-          {/* Enrolled Pupils Lists */}
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
-            <h3 className="font-extrabold text-sm text-primary uppercase">Enrolled Students ({selectedBatch.students?.length} / {selectedBatch.capacity})</h3>
-            <div className="border border-border rounded-xl overflow-hidden text-xs">
-              <table className="w-full text-left">
-                <thead className="bg-secondary/50 border-b border-border font-bold">
-                  <tr>
-                    <th className="p-3">Student</th>
-                    <th className="p-3">Admission #</th>
-                    <th className="p-3">Emergency Contact</th>
-                    <th className="p-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {selectedBatch.students?.length === 0 ? (
+              <div className="border border-border rounded-xl overflow-hidden text-xs">
+                <table className="w-full text-left">
+                  <thead className="bg-secondary/50 border-b border-border font-bold">
                     <tr>
-                      <td colSpan={4} className="p-6 text-center text-muted-foreground">No students enrolled in this batch yet.</td>
+                      <th className="p-3">Student Name</th>
+                      <th className="p-3">Admission Number</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Remarks / Feedback</th>
                     </tr>
-                  ) : (
-                    selectedBatch.students.map((s: any) => (
-                      <tr key={s.student.id} className="hover:bg-secondary/10">
-                        <td className="p-3 font-semibold text-foreground">{s.student.name}</td>
-                        <td className="p-3 font-mono font-semibold">{s.student.admissionNumber}</td>
-                        <td className="p-3 text-muted-foreground">{s.student.parentPhone}</td>
-                        <td className="p-3">
-                          <button
-                            onClick={() => handleUnenrollStudent(s.student.id)}
-                            className="text-rose-500 hover:underline font-semibold"
-                          >
-                            Dropout
-                          </button>
-                        </td>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {selectedBatch.students?.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-6 text-center text-muted-foreground">No students enrolled in this batch yet.</td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      selectedBatch.students.map((s: any) => {
+                        const studentId = s.student.id;
+                        const record = attendanceRecords[studentId] || { status: 'PRESENT', remarks: '' };
+                        return (
+                          <tr key={studentId} className="hover:bg-secondary/10">
+                            <td className="p-3 font-semibold text-foreground">{s.student.name}</td>
+                            <td className="p-3 font-mono text-muted-foreground">{s.student.admissionNumber}</td>
+                            <td className="p-3">
+                              <div className="flex gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setAttendanceRecords(prev => ({
+                                    ...prev,
+                                    [studentId]: { ...prev[studentId], status: 'PRESENT' }
+                                  }))}
+                                  className={`px-3 py-1.5 font-bold rounded-lg transition-all text-xs cursor-pointer ${record.status === 'PRESENT'
+                                      ? 'bg-emerald-500 text-white shadow-sm'
+                                      : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
+                                    }`}
+                                >
+                                  Present
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setAttendanceRecords(prev => ({
+                                    ...prev,
+                                    [studentId]: { ...prev[studentId], status: 'ABSENT' }
+                                  }))}
+                                  className={`px-3 py-1.5 font-bold rounded-lg transition-all text-xs cursor-pointer ${record.status === 'ABSENT'
+                                      ? 'bg-rose-500 text-white shadow-sm'
+                                      : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
+                                    }`}
+                                >
+                                  Absent
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setAttendanceRecords(prev => ({
+                                    ...prev,
+                                    [studentId]: { ...prev[studentId], status: 'LEAVE' }
+                                  }))}
+                                  className={`px-3 py-1.5 font-bold rounded-lg transition-all text-xs cursor-pointer ${record.status === 'LEAVE'
+                                      ? 'bg-amber-500 text-white shadow-sm'
+                                      : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
+                                    }`}
+                                >
+                                  Leave
+                                </button>
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <input
+                                type="text"
+                                placeholder="Add class feedback or attendance notes..."
+                                value={record.remarks}
+                                onChange={(e) => setAttendanceRecords(prev => ({
+                                  ...prev,
+                                  [studentId]: { ...prev[studentId], remarks: e.target.value }
+                                }))}
+                                className="bg-secondary border border-border text-foreground rounded-lg px-3 py-1.5 outline-none w-full max-w-md focus:border-primary transition-colors font-medium text-xs"
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Submit Actions */}
+              <div className="pt-4 border-t border-border flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAttendanceMode(false)}
+                  className="bg-secondary border border-border hover:bg-secondary/80 py-2.5 px-6 rounded-xl font-bold transition-colors cursor-pointer text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={submitAttendance}
+                  className="bg-primary text-primary-foreground hover:bg-primary/95 py-2.5 px-6 rounded-xl font-bold shadow-lg transition-colors cursor-pointer text-xs"
+                >
+                  Save Attendance
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          /* ========================================================= */
+          /* CLASS BATCH DETAILS & STUDENT ENROLLMENTS                 */
+          /* ========================================================= */
+          <div className="space-y-6">
+            <button
+              onClick={() => { setSelectedBatch(null); fetchData(); }}
+              className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground bg-secondary border border-border px-3 py-1.5 rounded-xl transition-all"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Timetables</span>
+            </button>
 
+            {/* Header Summary */}
+            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between gap-6">
+              <div className="flex flex-col md:flex-row items-center gap-5">
+                <div className="h-16 w-16 bg-primary text-primary-foreground font-black text-2xl flex items-center justify-center rounded-2xl shadow-lg">
+                  B
+                </div>
+                <div className="text-center md:text-left space-y-1">
+                  <h2 className="text-xl font-extrabold">{selectedBatch.name}</h2>
+                  <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
+                    <span className="text-[10px] bg-secondary text-primary font-bold px-2 py-0.5 rounded tracking-wide">{selectedBatch.course?.name}</span>
+                    <span className="text-[10px] text-muted-foreground">• Schedule: {selectedBatch.schedule}</span>
+                    <span className="text-[10px] text-muted-foreground">• Teacher: {selectedBatch.instructor?.name}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center gap-2 text-xs">
+                <button
+                  onClick={enterAttendanceMode}
+                  className="flex items-center gap-1.5 bg-primary text-primary-foreground font-bold px-4 py-2 rounded-xl cursor-pointer"
+                >
+                  <CheckSquare className="h-4 w-4" />
+                  <span>Daily Attendance Checklist</span>
+                </button>
+                <button
+                  onClick={openEnrollDrawer}
+                  className="flex items-center gap-1.5 bg-secondary text-foreground border border-border font-bold px-4 py-2 rounded-xl cursor-pointer"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  <span>Enroll Student</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Enrolled Pupils Lists */}
+            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
+              <h3 className="font-extrabold text-sm text-primary uppercase">Enrolled Students ({selectedBatch.students?.length} / {selectedBatch.capacity})</h3>
+              <div className="border border-border rounded-xl overflow-hidden text-xs">
+                <table className="w-full text-left">
+                  <thead className="bg-secondary/50 border-b border-border font-bold">
+                    <tr>
+                      <th className="p-3">Student</th>
+                      <th className="p-3">Admission #</th>
+                      <th className="p-3">Emergency Contact</th>
+                      <th className="p-3">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {selectedBatch.students?.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-6 text-center text-muted-foreground">No students enrolled in this batch yet.</td>
+                      </tr>
+                    ) : (
+                      selectedBatch.students.map((s: any) => (
+                        <tr key={s.student.id} className="hover:bg-secondary/10">
+                          <td className="p-3 font-semibold text-foreground">{s.student.name}</td>
+                          <td className="p-3 font-mono font-semibold">{s.student.admissionNumber}</td>
+                          <td className="p-3 text-muted-foreground">{s.student.parentPhone}</td>
+                          <td className="p-3">
+                            <button
+                              onClick={() => handleUnenrollStudent(s.student.id)}
+                              className="text-rose-500 hover:underline font-semibold cursor-pointer"
+                            >
+                              Dropout
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )
       ) : (
 
         /* ========================================================= */
@@ -427,7 +633,7 @@ export const CoursesAndBatches: React.FC = () => {
                 <p className="text-sm text-muted-foreground mt-0.5">Manage student classes, schedules, and instructor assignments.</p>
               </div>
             )}
-            
+
             {activeWorkspace === 'courses' ? (
               <button
                 onClick={openCourseCreate}
@@ -449,7 +655,7 @@ export const CoursesAndBatches: React.FC = () => {
 
           {/* Workspace Content Display */}
           {activeWorkspace === 'courses' ? (
-            
+
             /* COURSES CATALOG LIST */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {courses.map(c => (
@@ -457,14 +663,13 @@ export const CoursesAndBatches: React.FC = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between items-start">
                       <h4 className="font-bold text-base">{c.name}</h4>
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                        c.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
-                      }`}>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${c.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
+                        }`}>
                         {c.status}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed min-h-12">{c.description || 'No description provided.'}</p>
-                    
+
                     <div className="pt-2 flex justify-between text-xs font-semibold text-foreground">
                       <span>Monthly Fee: ₹{Number(c.monthlyFee).toLocaleString()}</span>
                       <span>Reg Fee: ₹{Number(c.registrationFee).toLocaleString()}</span>
@@ -497,9 +702,8 @@ export const CoursesAndBatches: React.FC = () => {
                         <h4 className="font-bold text-base leading-tight">{b.name}</h4>
                         <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wide mt-1 block">{b.course?.name}</span>
                       </div>
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                        b.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
-                      }`}>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${b.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
+                        }`}>
                         {b.status}
                       </span>
                     </div>
@@ -755,89 +959,6 @@ export const CoursesAndBatches: React.FC = () => {
         </div>
       )}
 
-      {/* 3. STUDENT ATTENDANCE MARKING CHECKS DRAWER */}
-      {isAttendanceOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-end bg-background/80 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-card border-l border-border h-full p-6 overflow-y-auto flex flex-col justify-between shadow-2xl animate-slide-in">
-            <div className="space-y-6 text-xs">
-              <div className="flex justify-between items-center pb-4 border-b border-border">
-                <h3 className="text-lg font-bold">Mark Batch Attendance</h3>
-                <button onClick={() => setIsAttendanceOpen(false)} className="p-1 hover:bg-secondary rounded-lg">
-                  <Plus className="h-5 w-5 rotate-45" />
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                <label className="font-bold text-muted-foreground uppercase">Class Date</label>
-                <input
-                  type="date"
-                  value={attendanceDate}
-                  onChange={(e) => setAttendanceDate(e.target.value)}
-                  className="bg-secondary border border-border px-3 py-2 rounded-xl outline-none font-bold text-sm"
-                />
-              </div>
-
-              <div className="space-y-3 divide-y divide-border max-h-[60vh] overflow-y-auto pr-1">
-                {selectedBatch.students.map((s: any) => {
-                  const studentId = s.student.id;
-                  const record = attendanceRecords[studentId] || { status: 'PRESENT', remarks: '' };
-                  return (
-                    <div key={studentId} className="pt-3 flex justify-between items-start gap-4">
-                      <div className="min-w-0">
-                        <span className="font-bold text-foreground block truncate">{s.student.name}</span>
-                        <span className="text-[10px] text-muted-foreground">{s.student.admissionNumber}</span>
-                      </div>
-                      <div className="flex flex-col gap-1 items-end">
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setAttendanceRecords(prev => ({
-                              ...prev,
-                              [studentId]: { ...prev[studentId], status: 'PRESENT' }
-                            }))}
-                            className={`px-2.5 py-1 font-bold rounded-lg ${
-                              record.status === 'PRESENT' ? 'bg-emerald-500 text-white' : 'bg-secondary'
-                            }`}
-                          >
-                            P
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setAttendanceRecords(prev => ({
-                              ...prev,
-                              [studentId]: { ...prev[studentId], status: 'ABSENT' }
-                            }))}
-                            className={`px-2.5 py-1 font-bold rounded-lg ${
-                              record.status === 'ABSENT' ? 'bg-rose-500 text-white' : 'bg-secondary'
-                            }`}
-                          >
-                            A
-                          </button>
-                        </div>
-                        <input
-                          type="text"
-                          placeholder="Add remark..."
-                          value={record.remarks}
-                          onChange={(e) => setAttendanceRecords(prev => ({
-                            ...prev,
-                            [studentId]: { ...prev[studentId], remarks: e.target.value }
-                          }))}
-                          className="bg-secondary text-[10px] border border-border rounded px-1.5 py-0.5 outline-none max-w-28 text-right"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="pt-6 border-t border-border flex gap-3 mt-8">
-              <button onClick={() => setIsAttendanceOpen(false)} className="flex-1 bg-secondary border border-border py-2 px-4 rounded-xl font-bold">Cancel</button>
-              <button onClick={submitAttendance} className="flex-1 bg-primary text-primary-foreground py-2 px-4 rounded-xl font-bold shadow-lg">Save Attendance</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 4. ENROLL STUDENT CHECKLIST DRAWER */}
       {isEnrollOpen && (
@@ -894,9 +1015,8 @@ export const CoursesAndBatches: React.FC = () => {
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-card border border-border px-4 py-3 rounded-2xl shadow-2xl animate-scale-in text-xs max-w-sm">
-          <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-            toast.type === 'success' ? 'bg-emerald-500 animate-pulse' : toast.type === 'warning' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500 animate-pulse'
-          }`} />
+          <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${toast.type === 'success' ? 'bg-emerald-500 animate-pulse' : toast.type === 'warning' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500 animate-pulse'
+            }`} />
           <span className="font-bold text-foreground leading-relaxed">{toast.message}</span>
         </div>
       )}

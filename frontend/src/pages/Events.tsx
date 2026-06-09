@@ -4,12 +4,13 @@ import { useAuthStore } from '../store/authStore';
 import { Plus, Trash2, Calendar, MapPin, DollarSign, Users, Award, Search, PlusCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 
 export const Events: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, activeBranchId } = useAuthStore();
   const [events, setEvents] = useState<any[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<any>(null);
 
   // Form Fields
   const [name, setName] = useState('');
@@ -64,7 +65,7 @@ export const Events: React.FC = () => {
     setBudget('');
     setDescription('');
     setStatus('UPCOMING');
-    setBranchId(user?.branchId || '');
+    setBranchId(activeBranchId || '');
     setFormError(null);
     setIsFormOpen(true);
   };
@@ -129,14 +130,14 @@ export const Events: React.FC = () => {
     } catch {}
   };
 
-  const handleDeleteEvent = async (id: string) => {
-    if (window.confirm('Delete this event?')) {
-      try {
-        await api.delete(`/events/${id}`);
-        setSelectedEvent(null);
-        fetchEvents();
-      } catch {}
-    }
+  const confirmDeleteEvent = async () => {
+    if (!eventToDelete) return;
+    try {
+      await api.delete(`/events/${eventToDelete.id}`);
+      setSelectedEvent(null);
+      setEventToDelete(null);
+      fetchEvents();
+    } catch {}
   };
 
   return (
@@ -181,8 +182,8 @@ export const Events: React.FC = () => {
                 <span>Register Performer</span>
               </button>
               <button
-                onClick={() => handleDeleteEvent(selectedEvent.id)}
-                className="px-3 py-2 text-rose-500 bg-rose-500/5 hover:bg-rose-500/10 rounded-xl"
+                onClick={() => setEventToDelete(selectedEvent)}
+                className="px-3 py-2 text-rose-500 bg-rose-500/5 hover:bg-rose-500/10 rounded-xl cursor-pointer"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -303,7 +304,14 @@ export const Events: React.FC = () => {
                     <div className="flex justify-between items-start">
                       <div>
                         <h4 className="font-bold text-base leading-tight">{e.name}</h4>
-                        <span className="text-[10px] text-primary font-bold bg-secondary px-2 py-0.5 rounded uppercase mt-1 inline-block">{e.status}</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          <span className="text-[10px] text-primary font-bold bg-secondary px-2 py-0.5 rounded uppercase">{e.status}</span>
+                          {e.branch?.name && (
+                            <span className="text-[10px] text-muted-foreground font-semibold bg-secondary/60 px-2 py-0.5 rounded">
+                              {e.branch.name.replace('Dance School ', '')}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -381,15 +389,26 @@ export const Events: React.FC = () => {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="font-bold text-muted-foreground uppercase">Organizing Branch *</label>
-                    <select
-                      value={branchId}
-                      onChange={(e) => setBranchId(e.target.value)}
-                      className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none"
-                    >
-                      <option value="">Select branch</option>
-                      {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
+                    {activeBranchId ? (
+                      <>
+                        <label className="font-bold text-muted-foreground uppercase">Organizing Branch</label>
+                        <div className="w-full bg-secondary border border-border px-3 py-2 rounded-lg font-bold text-foreground">
+                          {branches.find(b => b.id === activeBranchId)?.name || 'Active Branch'}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <label className="font-bold text-muted-foreground uppercase">Organizing Branch *</label>
+                        <select
+                          value={branchId}
+                          onChange={(e) => setBranchId(e.target.value)}
+                          className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none"
+                        >
+                          <option value="">Select branch</option>
+                          {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -499,6 +518,36 @@ export const Events: React.FC = () => {
 
             <div className="pt-6 border-t border-border mt-8">
               <button onClick={() => setIsRegisterOpen(false)} className="w-full bg-secondary border border-border py-2 px-4 rounded-xl font-bold">Close Drawer</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 3. CONFIRM DELETE MODAL */}
+      {eventToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-6 shadow-2xl flex flex-col gap-4 text-xs">
+            <div className="flex items-center gap-3 text-rose-500">
+              <AlertCircle className="h-6 w-6 shrink-0" />
+              <h3 className="text-base font-extrabold text-foreground">Delete Event</h3>
+            </div>
+            <p className="text-muted-foreground font-semibold leading-relaxed">
+              Are you sure you want to delete <strong>{eventToDelete.name}</strong>? This action is permanent and will delete all registration and participant records.
+            </p>
+            <div className="pt-4 border-t border-border flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setEventToDelete(null)}
+                className="bg-secondary border border-border hover:bg-secondary/80 py-2.5 px-5 rounded-xl font-bold transition-colors cursor-pointer text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteEvent}
+                className="bg-rose-500 text-white hover:bg-rose-600 py-2.5 px-5 rounded-xl font-bold shadow-lg transition-colors cursor-pointer text-xs"
+              >
+                Delete Event
+              </button>
             </div>
           </div>
         </div>
