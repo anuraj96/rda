@@ -33,10 +33,6 @@ export const Login: React.FC = () => {
 
   const demoAccounts = [
     { label: 'Super Admin', email: 'admin@rda.com', role: 'Super Admin' },
-    { label: 'Kochi Branch Manager', email: 'manager.kochi@rda.com', role: 'Branch Manager' },
-    { label: 'Kollam Branch Manager', email: 'manager.kollam@rda.com', role: 'Branch Manager' },
-    { label: 'Kochi Accountant', email: 'accountant.kochi@rda.com', role: 'Accountant' },
-    { label: 'John (Instructor)', email: 'instructor.john@rda.com', role: 'Instructor' },
   ];
 
   const handleQuickLogin = async (demoEmail: string) => {
@@ -44,18 +40,18 @@ export const Login: React.FC = () => {
     try {
       await login(demoEmail, 'password123');
       navigate('/dashboard');
-    } catch {}
+    } catch { }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white relative overflow-hidden">
-      
+
       {/* Visual background lights */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/20 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center z-10">
-        
+
         {/* Left: Branding & Pitch */}
         <div className="lg:col-span-6 space-y-6 text-center lg:text-left">
           <div className="flex items-center justify-center lg:justify-start gap-3">
