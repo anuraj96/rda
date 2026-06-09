@@ -84,4 +84,24 @@ export class ExpenseController {
       next(error);
     }
   }
+
+  static async getSalaryPayouts(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const orgId = req.orgId!;
+      const branchId = req.branchId;
+      const staffId = req.query.staffId as string | undefined;
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+
+      const { data, total } = await FinanceService.listSalaryPayouts(orgId, branchId, { staffId, page, limit });
+      return sendResponse(res, 200, 'Salary payouts retrieved successfully', data, {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

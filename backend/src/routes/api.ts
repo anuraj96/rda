@@ -63,9 +63,9 @@ router.delete('/branches/:id', authMiddleware, checkPermission('write:branch'), 
 // ==========================================
 // 4. STAFF MANAGEMENT
 // ==========================================
-router.get('/staff', authMiddleware, tenantMiddleware, checkPermission('manage:staff'), StaffController.list);
+router.get('/staff', authMiddleware, tenantMiddleware, checkPermission('read:dashboard'), StaffController.list);
 router.get('/staff/roles', authMiddleware, StaffController.listRoles);
-router.get('/staff/:id', authMiddleware, tenantMiddleware, checkPermission('manage:staff'), StaffController.getById);
+router.get('/staff/:id', authMiddleware, tenantMiddleware, checkPermission('read:dashboard'), StaffController.getById);
 router.post('/staff', authMiddleware, tenantMiddleware, checkPermission('manage:staff'), validateRequest(staffSchema), StaffController.create);
 router.put('/staff/:id', authMiddleware, tenantMiddleware, checkPermission('manage:staff'), validateRequest(staffSchema), StaffController.update);
 router.delete('/staff/:id', authMiddleware, tenantMiddleware, checkPermission('manage:staff'), StaffController.delete);
@@ -136,6 +136,9 @@ router.delete('/expenses/:id', authMiddleware, tenantMiddleware, checkPermission
 
 // Profit & Loss Report
 router.get('/finances/pl', authMiddleware, tenantMiddleware, checkPermission('read:reports'), ExpenseController.getProfitLoss);
+
+// Salary Payouts History
+router.get('/finances/salary-payouts', authMiddleware, tenantMiddleware, checkPermission('manage:expenses'), ExpenseController.getSalaryPayouts);
 
 // ==========================================
 // 10. EVENTS MANAGEMENT

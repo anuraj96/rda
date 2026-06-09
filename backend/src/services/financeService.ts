@@ -215,7 +215,7 @@ export class FinanceService {
   }
 
   // Expenses CRUD
-  static async listExpenses(orgId: string, branchId?: string, query?: { category?: string; start?: Date; end?: Date; page?: number; limit?: number }) {
+  static async listExpenses(orgId: string, branchId?: string, query?: { category?: string; staffId?: string; start?: Date; end?: Date; page?: number; limit?: number }) {
     const where: any = { organizationId: orgId, isActive: true };
     if (branchId) where.branchId = branchId;
     if (query?.category) where.category = query.category;
@@ -224,6 +224,11 @@ export class FinanceService {
       where.date = {};
       if (query.start) where.date.gte = query.start;
       if (query.end) where.date.lte = query.end;
+    }
+
+    // Filter by staffId if provided — salary records embed staffId in description prefix
+    if (query?.staffId) {
+      where.description = { contains: `[staffId:${query.staffId}]`, mode: 'insensitive' };
     }
 
     const page = query?.page || 1;
@@ -241,8 +246,43 @@ export class FinanceService {
     return { data, total };
   }
 
+  // Salary history — returns all SALARY expenses, optionally for a specific staff member
+  static async listSalaryPayouts(orgId: string, branchId?: string, query?: { staffId?: string; page?: number; limit?: number }) {
+    const where: any = { organizationId: orgId, isActive: true, category: 'SALARY' };
+    if (branchId) where.branchId = branchId;
+    if (query?.staffId) {
+      where.description = { contains: `[staffId:${query.staffId}]`, mode: 'insensitive' };
+    }
+
+    const page = query?.page || 1;
+    const limit = query?.limit || 50;
+    const skip = (page - 1) * limit;
+
+    const total = await prisma.expense.count({ where });
+    const data = await prisma.expense.findMany({
+      where,
+      orderBy: { date: 'desc' },
+      skip,
+      take: limit,
+    });
+
+    return { data, total };
+  }
+
   static async createExpense(orgId: string, data: any, userId: string) {
-    // If it is SALARY, let's verify employee or just record details
+    let description = data.description;
+
+    // If SALARY payout with staffId, auto-enrich the description with staff info
+    if (data.category === 'SALARY' && data.staffId) {
+      const staffMember = await prisma.user.findFirst({
+        where: { id: data.staffId, organizationId: orgId, isActive: true },
+        include: { role: true },
+      });
+      if (staffMember) {
+        description = `[staffId:${data.staffId}] Salary Payout - ${staffMember.name} (${staffMember.employeeId || data.staffId.slice(0, 8)}) [${staffMember.role.name}] | ${data.description}`;
+      }
+    }
+
     return prisma.expense.create({
       data: {
         organizationId: orgId,
@@ -250,7 +290,7 @@ export class FinanceService {
         category: data.category,
         amount: data.amount,
         date: data.date,
-        description: data.description,
+        description,
         billUrl: data.billUrl || null,
         status: data.status || 'PAID',
         eventId: data.eventId || null,

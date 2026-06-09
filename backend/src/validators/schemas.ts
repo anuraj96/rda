@@ -120,6 +120,7 @@ export const expenseSchema = z.object({
   status: z.enum(['PAID', 'PENDING']).default('PAID'),
   branchId: z.string().uuid('Invalid Branch ID').optional().nullable(),
   eventId: z.string().uuid().optional().nullable(),
+  staffId: z.string().uuid('Invalid Staff ID').optional().nullable(),
 });
 
 export const eventSchema = z.object({
