@@ -24,6 +24,7 @@ export const Staff: React.FC = () => {
   const [salary, setSalary] = useState('');
   const [joiningDate, setJoiningDate] = useState('');
   const [status, setStatus] = useState('ACTIVE');
+  const [password, setPassword] = useState('');
 
   // Metadata loaders
   const [roles, setRoles] = useState<any[]>([]);
@@ -73,6 +74,7 @@ export const Staff: React.FC = () => {
     setSalary('');
     setJoiningDate(new Date().toISOString().split('T')[0]);
     setStatus('ACTIVE');
+    setPassword('');
     setFormError(null);
     setIsFormOpen(true);
   };
@@ -89,6 +91,7 @@ export const Staff: React.FC = () => {
     setSalary(s.salary ? Number(s.salary).toString() : '');
     setJoiningDate(s.joiningDate ? new Date(s.joiningDate).toISOString().split('T')[0] : '');
     setStatus(s.status);
+    setPassword(s.password || '');
     setFormError(null);
     setIsFormOpen(true);
   };
@@ -99,12 +102,21 @@ export const Staff: React.FC = () => {
       setFormError('Please fill out all required fields');
       return;
     }
+    if (!editingStaff && !password) {
+      setFormError('Password is required for onboarding new staff');
+      return;
+    }
+    if (password && password.length < 6) {
+      setFormError('Password must be at least 6 characters');
+      return;
+    }
     setFormError(null);
 
     const payload = {
       employeeId,
       name,
       email,
+      password: password || undefined,
       phone: phone || null,
       address: address || null,
       roleId,
@@ -357,6 +369,17 @@ export const Staff: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="e.g. staff@rda.com"
+                    className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-muted-foreground uppercase">Password {editingStaff ? '(Leave blank to keep unchanged)' : '*'}</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={editingStaff ? "••••••" : "Enter password (min 6 characters)"}
                     className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
                   />
                 </div>

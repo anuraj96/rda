@@ -5,7 +5,7 @@ import { UnauthorizedError, NotFoundError } from '../utils/errors';
 const JWT_SECRET = process.env.JWT_SECRET || 'rda-secret-key-123456';
 
 export class AuthService {
-  static async login(email: string) {
+  static async login(email: string, password?: string) {
     const user = await prisma.user.findFirst({
       where: { email, isActive: true },
       include: {
@@ -24,6 +24,10 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedError('User account not found or is deactivated');
+    }
+
+    if (!password || user.password !== password) {
+      throw new UnauthorizedError('Incorrect password');
     }
 
     // Map permissions

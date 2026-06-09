@@ -25,6 +25,7 @@ export const staffSchema = z.object({
   employeeId: z.string().min(2, 'Employee ID must be at least 2 characters'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters').optional().nullable(),
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   roleId: z.string().uuid('Invalid Role ID'),

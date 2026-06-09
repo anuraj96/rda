@@ -6,8 +6,8 @@ import { sendResponse } from '../utils/response';
 export class AuthController {
   static async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email } = req.body;
-      const authData = await AuthService.login(email);
+      const { email, password } = req.body;
+      const authData = await AuthService.login(email, password);
       return sendResponse(res, 200, 'Login successful', authData);
     } catch (error) {
       next(error);

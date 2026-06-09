@@ -71,6 +71,7 @@ model User {
   employeeId     String?        @unique
   name           String
   email          String         @unique
+  password       String         @default("password123")
   phone          String?
   address        String?
   roleId         String

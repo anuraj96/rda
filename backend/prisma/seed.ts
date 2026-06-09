@@ -4,6 +4,34 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
+  console.log('Clearing existing database tables...');
+  await prisma.auditLog.deleteMany({});
+  await prisma.notification.deleteMany({});
+  await prisma.eventParticipant.deleteMany({});
+  await prisma.event.deleteMany({});
+  await prisma.income.deleteMany({});
+  await prisma.expense.deleteMany({});
+  await prisma.feePayment.deleteMany({});
+  await prisma.fee.deleteMany({});
+  await prisma.attendance.deleteMany({});
+  await prisma.batchStudent.deleteMany({});
+  await prisma.batch.deleteMany({});
+  await prisma.course.deleteMany({});
+  await prisma.studentDocument.deleteMany({});
+  await prisma.student.deleteMany({});
+  
+  // Link back reference cleanup
+  await prisma.branch.updateMany({
+    data: { managerId: null }
+  });
+  await prisma.user.deleteMany({});
+  await prisma.branch.deleteMany({});
+  await prisma.rolePermission.deleteMany({});
+  await prisma.role.deleteMany({});
+  await prisma.permission.deleteMany({});
+  await prisma.organization.deleteMany({});
+  console.log('Database tables cleared successfully.');
+
   console.log('Seeding database started...');
 
   // 1. Create Organization
