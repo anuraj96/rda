@@ -28,7 +28,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
       <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm font-semibold text-slate-400">Loading your dance school workspace...</span>
+          <span className="text-sm font-semibold text-slate-400">Loading your dance school workspace..</span>
         </div>
       </div>
     );
