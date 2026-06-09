@@ -1,0 +1,421 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Organization {
+  id            String         @id @default(uuid())
+  name          String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  isActive      Boolean        @default(true)
+  
+  // Relations
+  branches      Branch[]
+  users         User[]
+  students      Student[]
+  courses       Course[]
+  batches       Batch[]
+  fees          Fee[]
+  feePayments   FeePayment[]
+  expenses      Expense[]
+  incomes       Income[]
+  events        Event[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  attendances   Attendance[]
+}
+
+model Branch {
+  id             String         @id @default(uuid())
+  organizationId String
+  name           String
+  code           String
+  address        String
+  phone          String
+  email          String
+  managerId      String?
+  capacity       Int
+  status         String         @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  isActive       Boolean        @default(true)
+
+  // Relations
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  manager        User?          @relation("BranchManager", fields: [managerId], references: [id])
+  staff          User[]         @relation("BranchStaff")
+  students       Student[]
+  batches        Batch[]
+  fees           Fee[]
+  feePayments    FeePayment[]
+  expenses       Expense[]
+  incomes        Income[]
+  events         Event[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  attendances    Attendance[]
+}
+
+model User {
+  id             String         @id @default(uuid())
+  organizationId String
+  branchId       String?        // Nullable for Super Admin
+  employeeId     String?        @unique
+  name           String
+  email          String         @unique
+  phone          String?
+  address        String?
+  roleId         String
+  salary         Decimal?       @db.Decimal(10, 2)
+  joiningDate    DateTime?
+  status         String         @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  isActive       Boolean        @default(true)
+
+  // Relations
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  branch         Branch?        @relation("BranchStaff", fields: [branchId], references: [id])
+  role           Role           @relation(fields: [roleId], references: [id])
+  managedBranches Branch[]      @relation("BranchManager")
+  batches        Batch[]        @relation("BatchInstructor")
+  attendances    Attendance[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique // SUPER_ADMIN, BRANCH_MANAGER, STAFF, INSTRUCTOR, ACCOUNTANT
+  description String?
+  permissions RolePermission[]
+  users       User[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  name        String           @unique // e.g., "read:dashboard", "write:branch"
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Student {
+  id               String            @id @default(uuid())
+  organizationId   String
+  branchId         String
+  admissionNumber  String
+  name             String
+  photo            String?
+  gender           String
+  dob              DateTime
+  parentName       String
+  parentPhone      String
+  email            String?
+  address          String
+  emergencyContact String
+  joiningDate      DateTime
+  status           String            @default("ACTIVE") // ACTIVE, INACTIVE, DROPOUT
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  createdBy        String?
+  updatedBy        String?
+  isActive         Boolean           @default(true)
+
+  // Relations
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  branch           Branch            @relation(fields: [branchId], references: [id])
+  documents        StudentDocument[]
+  batches          BatchStudent[]
+  attendances      Attendance[]
+  fees             Fee[]
+  eventParticipants EventParticipant[]
+}
+
+model StudentDocument {
+  id          String   @id @default(uuid())
+  studentId   String
+  name        String
+  fileUrl     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  isActive    Boolean  @default(true)
+
+  // Relations
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Course {
+  id              String   @id @default(uuid())
+  organizationId  String
+  name            String
+  description     String?
+  duration        Int      // Duration in weeks
+  monthlyFee      Decimal  @db.Decimal(10, 2)
+  registrationFee Decimal  @db.Decimal(10, 2)
+  status          String   @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String?
+  updatedBy       String?
+  isActive        Boolean  @default(true)
+
+  // Relations
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  batches         Batch[]
+}
+
+model Batch {
+  id             String         @id @default(uuid())
+  organizationId String
+  branchId       String
+  courseId       String
+  instructorId   String
+  name           String
+  schedule       String         // e.g. "Mon, Wed, Fri 10:00 AM - 11:30 AM"
+  capacity       Int
+  startDate      DateTime
+  endDate        DateTime
+  status         String         @default("ACTIVE") // ACTIVE, INACTIVE, COMPLETED
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  isActive       Boolean        @default(true)
+
+  // Relations
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  branch         Branch         @relation(fields: [branchId], references: [id])
+  course         Course         @relation(fields: [courseId], references: [id])
+  instructor     User           @relation("BatchInstructor", fields: [instructorId], references: [id])
+  students       BatchStudent[]
+  attendances    Attendance[]
+}
+
+model BatchStudent {
+  batchId   String
+  studentId String
+  joinedAt  DateTime @default(now())
+  status    String   @default("ACTIVE") // ACTIVE, DROPOUT
+
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([batchId, studentId])
+}
+
+model Attendance {
+  id             String       @id @default(uuid())
+  organizationId String
+  branchId       String
+  type           String       // STUDENT, STAFF
+  studentId      String?
+  userId         String?      // For staff
+  batchId        String?      // For student batch attendance
+  date           DateTime     @db.Date
+  status         String       // PRESENT, ABSENT, LATE, LEAVE
+  checkInTime    DateTime?
+  checkOutTime   DateTime?
+  remarks        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  isActive       Boolean      @default(true)
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  student        Student?     @relation(fields: [studentId], references: [id])
+  user           User?        @relation(fields: [userId], references: [id])
+  batch          Batch?       @relation(fields: [batchId], references: [id])
+}
+
+model Fee {
+  id             String       @id @default(uuid())
+  organizationId String
+  branchId       String
+  studentId      String
+  type           String       // MONTHLY, REGISTRATION, EVENT, OTHER
+  amount         Decimal      @db.Decimal(10, 2)
+  discount       Decimal      @default(0) @db.Decimal(10, 2)
+  lateFee        Decimal      @default(0) @db.Decimal(10, 2)
+  dueDate        DateTime
+  status         String       @default("PENDING") // PENDING, PAID, OVERDUE, PARTIALLY_PAID
+  remarks        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  isActive       Boolean      @default(true)
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  student        Student      @relation(fields: [studentId], references: [id])
+  payments       FeePayment[]
+}
+
+model FeePayment {
+  id             String       @id @default(uuid())
+  organizationId String
+  branchId       String
+  feeId          String
+  amountPaid     Decimal      @db.Decimal(10, 2)
+  paymentDate    DateTime     @default(now())
+  paymentMode    String       // CASH, UPI, CARD, BANK_TRANSFER
+  transactionId  String?
+  receiptNumber  String       @unique
+  remarks        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  isActive       Boolean      @default(true)
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  fee            Fee          @relation(fields: [feeId], references: [id], onDelete: Cascade)
+}
+
+model Expense {
+  id             String       @id @default(uuid())
+  organizationId String
+  branchId       String
+  category       String       // RENT, ELECTRICITY, SALARY, MARKETING, COSTUME, EQUIPMENT, EVENT_EXPENSE, MISCELLANEOUS
+  amount         Decimal      @db.Decimal(10, 2)
+  date           DateTime
+  description    String
+  billUrl        String?
+  status         String       @default("PAID") // PAID, PENDING
+  eventId        String?      // Optional: link to Event expenses
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  isActive       Boolean      @default(true)
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  event          Event?       @relation(fields: [eventId], references: [id])
+}
+
+model Income {
+  id             String       @id @default(uuid())
+  organizationId String
+  branchId       String
+  source         String       // STUDENT_FEES, REGISTRATION_FEES, EVENT_REVENUE, MERCHANDISE_SALES, SPONSORSHIP_INCOME, MISCELLANEOUS
+  amount         Decimal      @db.Decimal(10, 2)
+  date           DateTime
+  description    String?
+  referenceId    String?      // FeePayment ID, Event ID, etc.
+  eventId        String?      // Optional: link to Event revenue
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  isActive       Boolean      @default(true)
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  event          Event?       @relation(fields: [eventId], references: [id])
+}
+
+model Event {
+  id             String             @id @default(uuid())
+  organizationId String
+  branchId       String
+  name           String
+  date           DateTime
+  venue          String
+  budget         Decimal            @db.Decimal(10, 2)
+  description    String?
+  status         String             @default("UPCOMING") // UPCOMING, COMPLETED, CANCELLED
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  isActive       Boolean            @default(true)
+
+  // Relations
+  organization   Organization       @relation(fields: [organizationId], references: [id])
+  branch         Branch             @relation(fields: [branchId], references: [id])
+  participants   EventParticipant[]
+  expenses       Expense[]
+  incomes        Income[]
+}
+
+model EventParticipant {
+  eventId          String
+  studentId        String
+  registeredAt     DateTime @default(now())
+  attendanceStatus String   @default("PENDING") // PENDING, PRESENT, ABSENT
+
+  event            Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, studentId])
+}
+
+model Notification {
+  id             String       @id @default(uuid())
+  organizationId String
+  branchId       String?
+  userId         String
+  title          String
+  message        String
+  type           String       // FEE_DUE, FEE_OVERDUE, NEW_ADMISSION, EVENT_REMINDER, BIRTHDAY_REMINDER, ATTENDANCE_ALERT
+  read           Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  isActive       Boolean      @default(true)
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  branch         Branch?      @relation(fields: [branchId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  branchId       String?
+  userId         String
+  action         String       // LOGIN, LOGOUT, CREATE_STUDENT, UPDATE_FEE, etc.
+  entityName     String
+  entityId       String?
+  details        String?      // JSON string of changes/metadata
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime     @default(now())
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  branch         Branch?      @relation(fields: [branchId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+}

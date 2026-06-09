@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: rda-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: rda_user
+      POSTGRES_PASSWORD: rda_password_123
+      POSTGRES_DB: rda_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rda-backend
+    restart: always
+    ports:
+      - "5001:5001"
+    environment:
+      - DATABASE_URL=postgresql://rda_user:rda_password_123@db:5432/rda_db?schema=public
+      - PORT=5001
+      - JWT_SECRET=rda-secret-key-123456
+      - NODE_ENV=development
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: rda-frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:5001/api
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
