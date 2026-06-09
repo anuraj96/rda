@@ -1,8 +1,11 @@
 # Base image
-FROM node:18-alpine AS builder
+FROM node:18-slim AS builder
 
 # Working directory
 WORKDIR /app
+
+# Install openssl for prisma
+RUN apt-get update -y && apt-get install -y openssl
 
 # Copy dependency configs
 COPY package.json ./
@@ -22,9 +25,12 @@ COPY src ./src/
 RUN npm run build
 
 # Run-stage image
-FROM node:18-alpine
+FROM node:18-slim
 
 WORKDIR /app
+
+# Install openssl for prisma
+RUN apt-get update -y && apt-get install -y openssl
 
 # Copy package and lock
 COPY package.json ./
