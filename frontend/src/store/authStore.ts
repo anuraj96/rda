@@ -32,7 +32,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
   activeBranchId: null,
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: !!localStorage.getItem('rda_token'),
   error: null,
 
   login: async (email: string, password?: string) => {
@@ -44,10 +44,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.setItem('rda_token', token);
       localStorage.setItem('rda_user', JSON.stringify(user));
       
-      // Default active branch is user's assigned branch
-      const activeBranchId = user.branchId;
-      if (activeBranchId) {
-        localStorage.setItem('rda_active_branch_id', activeBranchId);
+      // Default active branch is 'all' for Super Admin, or user's assigned branch for others
+      let activeBranchId: string | null = null;
+      if (user.role === 'SUPER_ADMIN') {
+        localStorage.setItem('rda_active_branch_id', 'all');
+      } else {
+        activeBranchId = user.branchId;
+        if (activeBranchId) {
+          localStorage.setItem('rda_active_branch_id', activeBranchId);
+        }
       }
 
       set({
@@ -75,6 +80,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       token: null,
       activeBranchId: null,
       isAuthenticated: false,
+      isLoading: false,
     });
   },
 
@@ -87,10 +93,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (token && userStr) {
       try {
         const user = JSON.parse(userStr) as User;
+        
+        let resolvedBranchId: string | null = null;
+        if (activeBranchId === 'all') {
+          resolvedBranchId = null;
+        } else if (activeBranchId) {
+          resolvedBranchId = activeBranchId;
+        } else {
+          resolvedBranchId = user.role === 'SUPER_ADMIN' ? null : user.branchId;
+        }
+
         set({
           token,
           user,
-          activeBranchId: activeBranchId || user.branchId,
+          activeBranchId: resolvedBranchId,
           isAuthenticated: true,
           isLoading: false,
         });
@@ -107,7 +123,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (branchId) {
       localStorage.setItem('rda_active_branch_id', branchId);
     } else {
-      localStorage.removeItem('rda_active_branch_id');
+      localStorage.setItem('rda_active_branch_id', 'all');
     }
     set({ activeBranchId: branchId });
   },

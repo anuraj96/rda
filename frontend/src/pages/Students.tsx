@@ -112,7 +112,7 @@ const generateTuitionReceiptHtml = (payment: any, fee: any) => {
 };
 
 export const Students: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, activeBranchId } = useAuthStore();
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
 
@@ -125,6 +125,11 @@ export const Students: React.FC = () => {
   const [batchFilter, setBatchFilter] = useState('');
   const [ledgerYearFilter, setLedgerYearFilter] = useState<string>('all');
   const [ledgerTypeFilter, setLedgerTypeFilter] = useState<string>('all');
+
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
 
   // New states for payments/fees
   const [fees, setFees] = useState<any[]>([]);
@@ -167,14 +172,20 @@ export const Students: React.FC = () => {
   const [amountPaid, setAmountPaid] = useState('');
   const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CARD' | 'BANK_TRANSFER'>('UPI');
   const [transactionId, setTransactionId] = useState('');
-
-  const fetchStudents = async () => {
+  const fetchStudents = async (targetPage = page) => {
     try {
       setLoading(true);
       const res = await api.get('/students', {
-        params: { search, status: statusFilter, batchId: batchFilter }
+        params: { search, status: statusFilter, batchId: batchFilter, page: targetPage, limit: 10 }
       });
       setStudents(res.data.data);
+      if (res.data.meta) {
+        setTotalPages(res.data.meta.totalPages || 1);
+        setTotalRecords(res.data.meta.total || 0);
+      } else {
+        setTotalPages(1);
+        setTotalRecords(res.data.data?.length || 0);
+      }
     } catch { } finally {
       setLoading(false);
     }
@@ -217,13 +228,19 @@ export const Students: React.FC = () => {
     } catch { }
   };
 
+  const isMountedRef = React.useRef(false);
+
   // URL-driven profile loader
   useEffect(() => {
     if (id) {
       selectStudentProfile(id, true);
     } else {
       setSelectedStudent(null);
+      if (isMountedRef.current) {
+        fetchStudents(page);
+      }
     }
+    isMountedRef.current = true;
   }, [id]);
 
   // Load fee ledger on-demand
@@ -234,8 +251,8 @@ export const Students: React.FC = () => {
   }, [selectedStudent?.id, activeTab]);
 
   useEffect(() => {
-    fetchStudents();
-  }, [search, statusFilter, batchFilter]);
+    fetchStudents(page);
+  }, [page, search, statusFilter, batchFilter]);
 
   useEffect(() => {
     fetchMetadata();
@@ -866,13 +883,22 @@ export const Students: React.FC = () => {
               <h2 className="text-2xl font-extrabold tracking-tight">Student Directory</h2>
               <p className="text-sm text-muted-foreground mt-0.5">Manage admissions, view class mappings, and billing history.</p>
             </div>
-            <button
-              onClick={handleOpenCreateForm}
-              className="flex items-center gap-2 bg-primary hover:bg-primary/95 text-primary-foreground font-bold px-4 py-2 rounded-xl shadow-lg shadow-primary/20 transition-all cursor-pointer text-sm"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Admit Student</span>
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/students/import')}
+                className="flex items-center gap-2 bg-secondary hover:bg-secondary/80 border border-border text-foreground font-bold px-4 py-2 rounded-xl shadow-sm transition-all cursor-pointer text-sm"
+              >
+                <Upload className="h-4 w-4 text-muted-foreground" />
+                <span>Bulk Import</span>
+              </button>
+              <button
+                onClick={handleOpenCreateForm}
+                className="flex items-center gap-2 bg-primary hover:bg-primary/95 text-primary-foreground font-bold px-4 py-2 rounded-xl shadow-lg shadow-primary/20 transition-all cursor-pointer text-sm"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Admit Student</span>
+              </button>
+            </div>
           </div>
 
           {/* Filtering panel */}
@@ -883,14 +909,20 @@ export const Students: React.FC = () => {
                 type="text"
                 placeholder="Search by name, admission ID..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 className="w-full bg-secondary border border-border rounded-xl pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>
             <div>
               <select
                 value={batchFilter}
-                onChange={(e) => setBatchFilter(e.target.value)}
+                onChange={(e) => {
+                  setBatchFilter(e.target.value);
+                  setPage(1);
+                }}
                 className="w-full bg-secondary border border-border px-3 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
                 <option value="">All Batches</option>
@@ -902,7 +934,10 @@ export const Students: React.FC = () => {
             <div>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
                 className="w-full bg-secondary border border-border px-3 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
                 <option value="">All Statuses</option>
@@ -925,61 +960,91 @@ export const Students: React.FC = () => {
               No registered students found.
             </div>
           ) : (
-            <div className="border border-border rounded-2xl bg-card shadow-sm overflow-hidden text-xs">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-secondary/50 border-b border-border font-bold">
-                    <tr>
-                      <th className="p-4">Student Name</th>
-                      <th className="p-4">Admission #</th>
-                      <th className="p-4">Parent / Phone</th>
-                      <th className="p-4">Branch</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {students.map((s) => (
-                      <tr key={s.id} className="hover:bg-secondary/15">
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 bg-primary/10 text-primary font-bold flex items-center justify-center rounded-lg">
-                              {s.name.charAt(0)}
-                            </div>
-                            <span className="font-semibold text-foreground">{s.name}</span>
-                          </div>
-                        </td>
-                        <td className="p-4 font-mono font-semibold">{s.admissionNumber}</td>
-                        <td className="p-4">
-                          <div className="space-y-0.5">
-                            <div>{s.parentName}</div>
-                            <div className="text-muted-foreground">{s.parentPhone}</div>
-                          </div>
-                        </td>
-                        <td className="p-4 font-medium">{s.branch?.name.replace('Dance School ', '')}</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${s.status === 'ACTIVE'
-                            ? 'bg-emerald-500/10 text-emerald-500'
-                            : s.status === 'INACTIVE'
-                              ? 'bg-amber-500/10 text-amber-500'
-                              : 'bg-rose-500/10 text-rose-500'
-                            }`}>
-                            {s.status}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <button
-                            onClick={() => navigate(`/student/${s.id}`)}
-                            className="text-xs text-primary font-bold hover:underline"
-                          >
-                            View Profile
-                          </button>
-                        </td>
+            <div className="space-y-4">
+              <div className="border border-border rounded-2xl bg-card shadow-sm overflow-hidden text-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-secondary/50 border-b border-border font-bold">
+                      <tr>
+                        <th className="p-4">Student Name</th>
+                        <th className="p-4">Admission #</th>
+                        <th className="p-4">Parent / Phone</th>
+                        <th className="p-4">Branch</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {students.map((s) => (
+                        <tr key={s.id} className="hover:bg-secondary/15">
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 bg-primary/10 text-primary font-bold flex items-center justify-center rounded-lg">
+                                {s.name.charAt(0)}
+                              </div>
+                              <span className="font-semibold text-foreground">{s.name}</span>
+                            </div>
+                          </td>
+                          <td className="p-4 font-mono font-semibold">{s.admissionNumber}</td>
+                          <td className="p-4">
+                            <div className="space-y-0.5">
+                              <div>{s.parentName}</div>
+                              <div className="text-muted-foreground">{s.parentPhone}</div>
+                            </div>
+                          </td>
+                          <td className="p-4 font-medium">{s.branch?.name.replace('Dance School ', '')}</td>
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${s.status === 'ACTIVE'
+                              ? 'bg-emerald-500/10 text-emerald-500'
+                              : s.status === 'INACTIVE'
+                                ? 'bg-amber-500/10 text-amber-500'
+                                : 'bg-rose-500/10 text-rose-500'
+                              }`}>
+                              {s.status}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <button
+                              onClick={() => navigate(`/student/${s.id}`)}
+                              className="text-xs text-primary font-bold hover:underline"
+                            >
+                              View Profile
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
+
+              {/* Pagination controls */}
+              {!loading && students.length > 0 && (
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2 text-xs font-semibold">
+                  <span className="text-muted-foreground">
+                    Showing students {((page - 1) * 10) + 1} - {Math.min(page * 10, totalRecords)} of {totalRecords} total students
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                    >
+                      Previous
+                    </button>
+                    <span className="flex items-center px-2 text-foreground">
+                      Page {page} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page >= totalPages}
+                      className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1375,7 +1440,6 @@ export const Students: React.FC = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

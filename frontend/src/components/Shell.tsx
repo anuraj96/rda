@@ -129,7 +129,7 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
           {filteredNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.path === '/students'
-              ? (location.pathname === '/students' || location.pathname.startsWith('/student/'))
+              ? (location.pathname === '/students' || location.pathname.startsWith('/student/') || location.pathname.startsWith('/students/'))
               : location.pathname === item.path;
             return (
               <Link
@@ -301,7 +301,7 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
               {filteredNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = item.path === '/students'
-                  ? (location.pathname === '/students' || location.pathname.startsWith('/student/'))
+                  ? (location.pathname === '/students' || location.pathname.startsWith('/student/') || location.pathname.startsWith('/students/'))
                   : location.pathname === item.path;
                 return (
                   <Link
