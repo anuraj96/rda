@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
+// @ts-ignore
+import html2pdf from 'html2pdf.js';
 import {
   TrendingUp, TrendingDown, DollarSign, Plus, Eye, CheckCircle, CreditCard, Search,
   Calendar, Award, AlertTriangle, Upload, Landmark, Trash2, Users, Banknote, Clock,
@@ -38,6 +40,207 @@ function parseSalaryDescription(desc: string) {
     period: periodMatch?.[1] || null,
   };
 }
+
+const generateTuitionReceiptHtml = (payment: any, fee: any) => {
+  const receiptNumber = payment?.receiptNumber || 'N/A';
+  const paymentDate = payment?.paymentDate ? new Date(payment.paymentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+  const studentName = fee?.student?.name || 'N/A';
+  const admissionNumber = fee?.student?.admissionNumber || 'N/A';
+  const billingCategory = fee?.type || 'N/A';
+  const feePeriod = fee?.type === 'MONTHLY' && fee?.dueDate ? new Date(fee.dueDate).toLocaleDateString('default', { month: 'long', year: 'numeric' }) : '';
+  const paymentMode = payment?.paymentMode || 'N/A';
+  const transactionId = payment?.transactionId || '';
+  const amountPaid = Number(payment?.amountPaid || 0).toLocaleString('en-IN');
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Receipt_${receiptNumber}</title>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; color: #1f2937; padding: 40px; margin: 0; background: #ffffff; }
+    .container { max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 16px; padding: 32px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 24px; }
+    .logo-container { display: flex; align-items: center; gap: 12px; }
+    .logo { height: 48px; border-radius: 8px; }
+    .title { font-size: 18px; font-weight: 800; color: #1e3a8a; margin: 0; letter-spacing: 0.5px; line-height: 1.2; }
+    .subtitle { font-size: 10px; color: #3b82f6; font-weight: 800; text-transform: uppercase; margin-top: 4px; letter-spacing: 1px; }
+    .meta-grid { display: grid; grid-template-cols: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .meta-item { background: #f9fafb; border: 1px solid #f3f4f6; padding: 12px; border-radius: 8px; }
+    .meta-label { font-size: 9px; font-weight: 700; color: #9ca3af; text-transform: uppercase; margin-bottom: 4px; }
+    .meta-val { font-size: 13px; font-weight: 700; color: #111827; }
+    .section-title { font-size: 10px; font-weight: 800; color: #4b5563; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
+    .details-box { background: #f3f4f6; border-radius: 12px; padding: 16px; margin-bottom: 24px; }
+    .details-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 12px; }
+    .details-row:not(:last-child) { border-bottom: 1px dashed #e5e7eb; }
+    .total-row { display: flex; justify-content: space-between; padding-top: 16px; border-top: 2px solid #e5e7eb; margin-top: 16px; font-weight: 900; font-size: 15px; }
+    .total-amount { color: #10b981; }
+    .footer { text-align: center; margin-top: 32px; font-size: 10px; color: #9ca3af; line-height: 1.6; font-style: italic; }
+    @media print {
+      body { padding: 20px; }
+      .container { border: none; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo-container">
+        <img class="logo" src="${window.location.origin}/dlogo.png" alt="RDA Logo" onerror="this.style.display='none'" />
+        <div>
+          <div class="title">RUDRESHWAR DANCE ACADEMY</div>
+          <div class="subtitle">Official Payment Receipt</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="meta-grid">
+      <div class="meta-item">
+        <div class="meta-label">Receipt Number</div>
+        <div class="meta-val">${receiptNumber}</div>
+      </div>
+      <div class="meta-item" style="text-align: right;">
+        <div class="meta-label">Payment Date</div>
+        <div class="meta-val">${paymentDate}</div>
+      </div>
+    </div>
+
+    <div class="details-box">
+      <div class="section-title">Received From</div>
+      <div style="font-size: 14px; font-weight: 800; color: #111827;">${studentName}</div>
+      <div style="font-size: 11px; color: #4b5563; margin-top: 4px;">Admission No: ${admissionNumber}</div>
+    </div>
+
+    <div class="section-title">Payment Particulars</div>
+    <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; background: #ffffff;">
+      <div class="details-row">
+        <span>Invoiced Category</span>
+        <span style="font-weight: 700; text-transform: uppercase; color: #3b82f6;">${billingCategory}${feePeriod ? ` (${feePeriod})` : ''}</span>
+      </div>
+      <div class="details-row">
+        <span>Payment Method</span>
+        <span style="font-weight: 700;">${paymentMode}</span>
+      </div>
+      ${transactionId ? `
+      <div class="details-row">
+        <span>Transaction ID</span>
+        <span style="font-family: monospace; font-weight: 600;">${transactionId}</span>
+      </div>
+      ` : ''}
+      <div class="total-row">
+        <span>TOTAL AMOUNT PAID</span>
+        <span class="total-amount">₹${amountPaid}</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      br/>
+      This is an electronically generated receipt and does not require a physical signature.
+    </div>
+  </div>
+</body>
+</html>
+  `;
+};
+
+const generateSalarySlipHtml = (payout: any, staff: any) => {
+  const parsed = parseSalaryDescription(payout?.description || '');
+  const period = parsed?.period || payout?.description || 'Monthly Payout';
+  const paymentDate = payout?.date ? new Date(payout.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+  const staffName = staff?.name || parsed?.name || 'N/A';
+  const employeeId = staff?.employeeId || parsed?.empId || 'N/A';
+  const roleName = staff?.role?.name || parsed?.role || 'Staff';
+  const status = payout?.status || 'PAID';
+  const amountPaid = Number(payout?.amount || 0).toLocaleString('en-IN');
+  const notes = payout?.description || '';
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Salary_Slip_${employeeId}_${period.replace(/\s+/g, '_')}</title>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; color: #1f2937; padding: 40px; margin: 0; background: #ffffff; }
+    .container { max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 16px; padding: 32px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #6366f1; padding-bottom: 20px; margin-bottom: 24px; }
+    .logo-container { display: flex; align-items: center; gap: 12px; }
+    .logo { height: 48px; border-radius: 8px; }
+    .title { font-size: 18px; font-weight: 800; color: #1e3a8a; margin: 0; letter-spacing: 0.5px; line-height: 1.2; }
+    .subtitle { font-size: 10px; color: #6366f1; font-weight: 800; text-transform: uppercase; margin-top: 4px; letter-spacing: 1px; }
+    .meta-grid { display: grid; grid-template-cols: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .meta-item { background: #f9fafb; border: 1px solid #f3f4f6; padding: 12px; border-radius: 8px; }
+    .meta-label { font-size: 9px; font-weight: 700; color: #9ca3af; text-transform: uppercase; margin-bottom: 4px; }
+    .meta-val { font-size: 13px; font-weight: 700; color: #111827; }
+    .section-title { font-size: 10px; font-weight: 800; color: #4b5563; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
+    .details-box { background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 12px; padding: 16px; margin-bottom: 24px; }
+    .details-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 12px; }
+    .details-row:not(:last-child) { border-bottom: 1px dashed #e5e7eb; }
+    .total-row { display: flex; justify-content: space-between; padding-top: 16px; border-top: 2px solid #e5e7eb; margin-top: 16px; font-weight: 900; font-size: 15px; }
+    .total-amount { color: #6366f1; }
+    .footer { text-align: center; margin-top: 32px; font-size: 10px; color: #9ca3af; line-height: 1.6; font-style: italic; }
+    @media print {
+      body { padding: 20px; }
+      .container { border: none; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo-container">
+        <img class="logo" src="${window.location.origin}/dlogo.png" alt="RDA Logo" onerror="this.style.display='none'" />
+        <div>
+          <div class="title">RUDRESHWAR DANCE ACADEMY</div>
+          <div class="subtitle">Salary Disbursement Slip</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="meta-grid">
+      <div class="meta-item">
+        <div class="meta-label">Disbursement Period</div>
+        <div class="meta-val">${period}</div>
+      </div>
+      <div class="meta-item" style="text-align: right;">
+        <div class="meta-label">Payment Date</div>
+        <div class="meta-val">${paymentDate}</div>
+      </div>
+    </div>
+
+    <div class="details-box">
+      <div class="section-title">Employee Details</div>
+      <div style="font-size: 14px; font-weight: 800; color: #111827;">${staffName}</div>
+      <div style="font-size: 11px; color: #4b5563; margin-top: 4px;">Employee ID: ${employeeId}</div>
+      <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">Role: ${roleName.replace('_', ' ')}</div>
+    </div>
+
+    <div class="section-title">Disbursement Breakdown</div>
+    <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; background: #ffffff;">
+      <div class="details-row">
+        <span>Payment Status</span>
+        <span style="font-weight: 700; color: #10b981; text-transform: uppercase;">${status}</span>
+      </div>
+      <div class="details-row">
+        <span>Description Reference</span>
+        <span style="font-weight: 500; color: #4b5563; text-align: right; max-width: 250px;">${notes}</span>
+      </div>
+      <div class="total-row">
+        <span>TOTAL DISBURSED AMOUNT</span>
+        <span class="total-amount">₹${amountPaid}</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      This is a confidential payroll document.<br/>
+      If you have any questions, please contact the accounts department.
+    </div>
+  </div>
+</body>
+</html>
+  `;
+};
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -83,6 +286,7 @@ export const Finances: React.FC = () => {
   const [search, setSearch] = useState('');
   const [feeStatus, setFeeStatus] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
+  const [billingCategory, setBillingCategory] = useState('');
   const [staffSearch, setStaffSearch] = useState('');
 
   // Pagination States
@@ -121,6 +325,7 @@ export const Finances: React.FC = () => {
 
   // Receipt modal state
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
+  const [selectedSalaryReceipt, setSelectedSalaryReceipt] = useState<any>(null);
 
   // Generate list of due months statically (e.g., last 12 months and next 6 months)
   const uniqueMonths = (() => {
@@ -154,7 +359,7 @@ export const Finances: React.FC = () => {
     try {
       setLoading(true);
       if (activeTab === 'fees') {
-        const res = await api.get('/fees', { params: { search, status: feeStatus, month: selectedMonth, page: feesPage, limit: 10 } });
+        const res = await api.get('/fees', { params: { search, status: feeStatus, month: selectedMonth, type: billingCategory, page: feesPage, limit: 10 } });
         setFees(res.data.data);
         setFeesTotal(res.data.meta?.total || 0);
         setFeesTotalPages(res.data.meta?.totalPages || 1);
@@ -226,7 +431,7 @@ export const Finances: React.FC = () => {
 
   useEffect(() => {
     fetchFinancials();
-  }, [activeTab, search, feeStatus, selectedMonth, feesPage, defPage, incomePage, expPage]);
+  }, [activeTab, search, feeStatus, selectedMonth, billingCategory, feesPage, defPage, incomePage, expPage]);
 
   useEffect(() => {
     fetchBranches();
@@ -369,6 +574,24 @@ export const Finances: React.FC = () => {
     setSelectedReceipt({ payment, fee });
   };
 
+  const showSalaryReceipt = (payout: any, staff: any) => {
+    setSelectedSalaryReceipt({ payout, staff });
+  };
+
+  const downloadReceiptPDF = (htmlContent: string, fileName: string) => {
+    const element = document.createElement('div');
+    element.innerHTML = htmlContent;
+    const opt = {
+      margin: 10,
+      filename: fileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    // @ts-ignore
+    html2pdf().set(opt).from(element).save();
+  };
+
   // Filtered staff for salary tab
   const filteredStaff = staffList.filter(s =>
     !staffSearch ||
@@ -433,7 +656,7 @@ export const Finances: React.FC = () => {
         {availableTabs.map(tab => (
           <button
             key={tab}
-            onClick={() => { setActiveTab(tab as any); setSearch(''); setFeeStatus(''); setSelectedMonth(''); }}
+            onClick={() => { setActiveTab(tab as any); setSearch(''); setFeeStatus(''); setSelectedMonth(''); setBillingCategory(''); }}
             className={`pb-2.5 px-1 capitalize transition-all border-b-2 whitespace-nowrap ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
@@ -456,21 +679,21 @@ export const Finances: React.FC = () => {
         {/* TAB 1: TUITION FEES */}
         {activeTab === 'fees' && (
           <div className="space-y-4 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-card border border-border p-4 rounded-2xl">
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 bg-card border border-border p-4 rounded-2xl">
               <div className="relative col-span-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Search by student name..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); setFeesPage(1); }}
                   className="w-full bg-secondary border border-border rounded-xl pl-10 pr-4 py-2 outline-none"
                 />
               </div>
               <div>
                 <select
                   value={feeStatus}
-                  onChange={(e) => setFeeStatus(e.target.value)}
+                  onChange={(e) => { setFeeStatus(e.target.value); setFeesPage(1); }}
                   className="w-full bg-secondary border border-border px-3 py-2 rounded-xl outline-none"
                 >
                   <option value="">All Payments Statuses</option>
@@ -483,13 +706,24 @@ export const Finances: React.FC = () => {
               <div>
                 <select
                   value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  onChange={(e) => { setSelectedMonth(e.target.value); setFeesPage(1); }}
                   className="w-full bg-secondary border border-border px-3 py-2 rounded-xl outline-none"
                 >
                   <option value="">All Due Months</option>
                   {uniqueMonths.map(m => (
                     <option key={m} value={m}>{formatMonthYear(m)}</option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <select
+                  value={billingCategory}
+                  onChange={(e) => { setBillingCategory(e.target.value); setFeesPage(1); }}
+                  className="w-full bg-secondary border border-border px-3 py-2 rounded-xl outline-none"
+                >
+                  <option value="">All Billing Categories</option>
+                  <option value="MONTHLY">Monthly</option>
+                  <option value="REGISTRATION">Registration</option>
                 </select>
               </div>
             </div>
@@ -535,16 +769,26 @@ export const Finances: React.FC = () => {
                           {f.status !== 'PAID' ? (
                             <button
                               onClick={() => openCollectFeeModal(f)}
-                              className="flex items-center gap-1 bg-primary text-primary-foreground font-bold px-3 py-1 rounded-lg"
+                              className="flex items-center gap-1 bg-primary text-primary-foreground font-bold px-3 py-1 rounded-lg cursor-pointer"
                             >
-                              <CreditCard className="h-3 w-3" />
+                              <CheckCircle className="h-3 w-3" />
                               <span>Collect Payment</span>
                             </button>
                           ) : (
-                            <span className="text-muted-foreground flex items-center gap-1 font-semibold">
-                              <CheckCircle className="h-4.5 w-4.5 text-emerald-500" />
-                              <span>Collected</span>
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted-foreground flex items-center gap-1 font-semibold">
+                                <CheckCircle className="h-4.5 w-4.5 text-emerald-500" />
+                                <span>Collected</span>
+                              </span>
+                              {f.payments && f.payments.length > 0 && (
+                                <button
+                                  onClick={() => showReceipt(f.payments[0], f)}
+                                  className="text-xs text-primary font-bold hover:underline cursor-pointer ml-1"
+                                >
+                                  View Receipt
+                                </button>
+                              )}
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -721,11 +965,31 @@ export const Finances: React.FC = () => {
                         </td>
                         <td className="p-3 text-muted-foreground">{new Date(e.date).toLocaleDateString()}</td>
                         <td className="p-3">
-                          {e.billUrl ? (
-                            <a href={e.billUrl} target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline">View File</a>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {e.billUrl && (
+                              <a href={e.billUrl} target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline">View File</a>
+                            )}
+                            {e.category === 'SALARY' && (
+                              <button
+                                onClick={() => {
+                                  const parsed = parseSalaryDescription(e.description || '');
+                                  const staffObj = {
+                                    id: parsed.staffId,
+                                    name: parsed.name,
+                                    employeeId: parsed.empId,
+                                    role: { name: parsed.role }
+                                  };
+                                  showSalaryReceipt(e, staffObj);
+                                }}
+                                className="text-xs text-primary font-bold hover:underline cursor-pointer"
+                              >
+                                View Receipt
+                              </button>
+                            )}
+                            {!e.billUrl && e.category !== 'SALARY' && (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </div>
                         </td>
                         <td className="p-3">
                           <span className="px-2 py-0.5 rounded font-bold text-[9px] bg-emerald-500/10 text-emerald-500">{e.status}</span>
@@ -1079,13 +1343,15 @@ export const Finances: React.FC = () => {
                 <span className="text-muted-foreground font-bold block text-[9px] uppercase">Received From</span>
                 <p className="font-extrabold text-foreground">{selectedReceipt.fee?.student?.name}</p>
                 <p className="text-[10px] text-muted-foreground">Admission: {selectedReceipt.fee?.student?.admissionNumber}</p>
-                <p className="text-[10px] text-muted-foreground">Guardian Address: {selectedReceipt.fee?.student?.address}</p>
               </div>
 
               <div className="divide-y divide-border">
                 <div className="py-2.5 flex justify-between font-bold">
                   <span>Invoiced Item</span>
-                  <span className="uppercase text-[9px] tracking-wider text-primary">{selectedReceipt.fee?.type}</span>
+                  <span className="uppercase text-[9px] tracking-wider text-primary">
+                    {selectedReceipt.fee?.type}
+                    {selectedReceipt.fee?.type === 'MONTHLY' && selectedReceipt.fee?.dueDate && ` (${new Date(selectedReceipt.fee.dueDate).toLocaleDateString('default', { month: 'long', year: 'numeric' })})`}
+                  </span>
                 </div>
                 <div className="py-2.5 flex justify-between font-medium text-muted-foreground">
                   <span>Payment Channel</span>
@@ -1103,11 +1369,110 @@ export const Finances: React.FC = () => {
                 </div>
               </div>
 
-              <p className="text-[9px] text-center text-muted-foreground italic pt-2">Thank you for dancing with Rudreshwar Dance Academy! This is an electronically generated receipt reference.</p>
+              <p className="text-[9px] text-center text-muted-foreground italic pt-2">Thank you for your payment. This is an electronically generated receipt reference.</p>
             </div>
 
-            <div className="pt-2">
-              <button onClick={() => setSelectedReceipt(null)} className="w-full bg-secondary border border-border py-2 px-3 rounded-xl font-bold">Close Receipt</button>
+            <div className="pt-2 flex gap-3">
+              <button
+                onClick={() => setSelectedReceipt(null)}
+                className="flex-1 bg-secondary border border-border py-2 px-3 rounded-xl font-bold cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  const html = generateTuitionReceiptHtml(selectedReceipt.payment, selectedReceipt.fee);
+                  const studentName = selectedReceipt.fee?.student?.name || 'Student';
+                  const feePeriod = selectedReceipt.fee?.type === 'MONTHLY' && selectedReceipt.fee?.dueDate
+                    ? new Date(selectedReceipt.fee.dueDate).toLocaleDateString('default', { month: 'long', year: 'numeric' })
+                    : selectedReceipt.fee?.type || 'Payment';
+                  const fileName = `${studentName.replace(/\s+/g, '_')}-${feePeriod.replace(/\s+/g, '_')}-Payment.pdf`;
+                  downloadReceiptPDF(html, fileName);
+                }}
+                className="flex-1 bg-primary text-primary-foreground py-2 px-3 rounded-xl font-bold shadow-md cursor-pointer hover:bg-primary/95 transition-colors"
+              >
+                Download PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3.1. SALARY SLIP VIEWER POPUP OVERLAY */}
+      {selectedSalaryReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-6 animate-scale-in text-xs text-foreground">
+            <div className="flex justify-between items-center pb-2 border-b border-border">
+              <h3 className="font-extrabold text-sm text-indigo-400 uppercase">RUDRESHWAR DANCE ACADEMY SALARY SLIP</h3>
+              <button onClick={() => setSelectedSalaryReceipt(null)} className="p-1 hover:bg-secondary rounded-lg justify-center flex items-center">
+                <Plus className="h-5 w-5 rotate-45" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-between">
+                <div>
+                  <span className="text-muted-foreground block font-bold text-[9px] uppercase">Disbursement Period</span>
+                  <span className="font-bold text-sm text-foreground">
+                    {(() => {
+                      const parsed = parseSalaryDescription(selectedSalaryReceipt.payout.description || '');
+                      return parsed.period || selectedSalaryReceipt.payout.description || 'Monthly Payout';
+                    })()}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-muted-foreground block font-bold text-[9px] uppercase">Payment Date</span>
+                  <span className="font-bold text-foreground">{new Date(selectedSalaryReceipt.payout.date).toLocaleDateString()}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-secondary/50 border border-border rounded-xl space-y-1">
+                <span className="text-muted-foreground font-bold block text-[9px] uppercase">Employee Details</span>
+                <p className="font-extrabold text-foreground">{selectedSalaryReceipt.staff?.name || 'N/A'}</p>
+                <p className="text-[10px] text-muted-foreground">Employee ID: {selectedSalaryReceipt.staff?.employeeId || 'N/A'}</p>
+                <p className="text-[10px] text-muted-foreground">Role: {selectedSalaryReceipt.staff?.role?.name?.replace('_', ' ') || 'Staff'}</p>
+              </div>
+
+              <div className="divide-y divide-border">
+                <div className="py-2.5 flex justify-between font-bold">
+                  <span>Disbursement Status</span>
+                  <span className="uppercase text-[9px] tracking-wider text-emerald-500 font-bold">{selectedSalaryReceipt.payout.status}</span>
+                </div>
+                <div className="py-2.5 flex justify-between font-medium text-muted-foreground text-right">
+                  <span className="text-left">Reference Description</span>
+                  <span className="text-foreground max-w-[200px] text-right font-medium block truncate" title={selectedSalaryReceipt.payout.description}>
+                    {selectedSalaryReceipt.payout.description}
+                  </span>
+                </div>
+                <div className="py-3 flex justify-between font-black text-sm border-t border-border pt-3">
+                  <span>TOTAL DISBURSED AMOUNT</span>
+                  <span className="text-indigo-400">₹{Number(selectedSalaryReceipt.payout.amount).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <p className="text-[9px] text-center text-muted-foreground italic pt-2">This is a confidential payroll disbursement slip generated electronically by Rudreshwar Dance Academy.</p>
+            </div>
+
+            <div className="pt-2 flex gap-3">
+              <button
+                onClick={() => setSelectedSalaryReceipt(null)}
+                className="flex-1 bg-secondary border border-border py-2 px-3 rounded-xl font-bold cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  const html = generateSalarySlipHtml(selectedSalaryReceipt.payout, selectedSalaryReceipt.staff);
+                  const parsed = parseSalaryDescription(selectedSalaryReceipt.payout.description || '');
+                  const period = parsed.period || selectedSalaryReceipt.payout.description || 'Payout';
+                  const staffName = selectedSalaryReceipt.staff?.name || parsed.name || 'Staff';
+                  const fileName = `${staffName.replace(/\s+/g, '_')}-${period.replace(/\s+/g, '_')}-Salary.pdf`;
+                  downloadReceiptPDF(html, fileName);
+                }}
+                className="flex-1 bg-indigo-600 text-white py-2 px-3 rounded-xl font-bold shadow-md cursor-pointer hover:bg-indigo-700 transition-colors"
+              >
+                Download PDF
+              </button>
             </div>
           </div>
         </div>
@@ -1301,16 +1666,25 @@ export const Finances: React.FC = () => {
                   {staffPayoutHistory.map(p => {
                     const parsed = parseSalaryDescription(p.description || '');
                     return (
-                      <div key={p.id} className="bg-secondary/40 border border-border rounded-xl p-3 flex justify-between items-center">
+                      <div key={p.id} className="bg-secondary/40 border border-border rounded-xl p-3 flex justify-between items-center bg-card">
                         <div>
                           <p className="font-bold text-foreground">{parsed.period || p.description}</p>
                           <p className="text-muted-foreground text-[10px] mt-0.5">
                             {new Date(p.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-black text-rose-400">{fmt(Number(p.amount))}</p>
-                          <p className="text-[9px] text-emerald-400 font-bold mt-0.5">{p.status}</p>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="font-black text-rose-400">{fmt(Number(p.amount))}</p>
+                            <p className="text-[9px] text-emerald-400 font-bold mt-0.5">{p.status}</p>
+                          </div>
+                          <button
+                            onClick={() => showSalaryReceipt(p, selectedStaff)}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold p-2 rounded-lg cursor-pointer flex items-center justify-center transition-colors"
+                            title="View Slip"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </div>
                     );

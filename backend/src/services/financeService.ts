@@ -3,11 +3,12 @@ import { NotFoundError, BadRequestError } from '../utils/errors';
 
 export class FinanceService {
   // Fees
-  static async listFees(orgId: string, branchId?: string, query?: { status?: string; studentId?: string; search?: string; month?: string; page?: number; limit?: number }) {
+  static async listFees(orgId: string, branchId?: string, query?: { status?: string; studentId?: string; type?: string; search?: string; month?: string; page?: number; limit?: number }) {
     const where: any = { organizationId: orgId, isActive: true };
     if (branchId) where.branchId = branchId;
     if (query?.status) where.status = query.status;
     if (query?.studentId) where.studentId = query.studentId;
+    if (query?.type) where.type = query.type;
 
     if (query?.search) {
       where.student = {
