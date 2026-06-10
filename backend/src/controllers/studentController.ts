@@ -31,6 +31,18 @@ export class StudentController {
     }
   }
 
+  static async getPaymentDetails(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const orgId = req.orgId!;
+      const { id } = req.params;
+
+      const paymentDetails = await StudentService.getPaymentDetails(orgId, id);
+      return sendResponse(res, 200, 'Student payment details retrieved successfully', paymentDetails);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async create(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const orgId = req.orgId!;

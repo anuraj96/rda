@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
 // @ts-ignore
@@ -112,6 +113,9 @@ const generateTuitionReceiptHtml = (payment: any, fee: any) => {
 
 export const Students: React.FC = () => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
+  const { id } = useParams<{ id?: string }>();
+
   const [students, setStudents] = useState<any[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
@@ -121,6 +125,10 @@ export const Students: React.FC = () => {
   const [batchFilter, setBatchFilter] = useState('');
   const [ledgerYearFilter, setLedgerYearFilter] = useState<string>('all');
   const [ledgerTypeFilter, setLedgerTypeFilter] = useState<string>('all');
+
+  // New states for payments/fees
+  const [fees, setFees] = useState<any[]>([]);
+  const [loadingFees, setLoadingFees] = useState(false);
 
   // Form toggles
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -185,6 +193,46 @@ export const Students: React.FC = () => {
     } catch { }
   };
 
+  const fetchStudentFees = async (studentId: string) => {
+    try {
+      setLoadingFees(true);
+      const res = await api.get(`/students/${studentId}/payment-details`);
+      setFees(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch payment details', err);
+    } finally {
+      setLoadingFees(false);
+    }
+  };
+
+  const selectStudentProfile = async (studentId: string, resetTab = false) => {
+    try {
+      const res = await api.get(`/students/${studentId}`);
+      setSelectedStudent(res.data.data);
+      if (resetTab) {
+        setActiveTab('profile');
+        setLedgerYearFilter('all');
+        setLedgerTypeFilter('all');
+      }
+    } catch { }
+  };
+
+  // URL-driven profile loader
+  useEffect(() => {
+    if (id) {
+      selectStudentProfile(id, true);
+    } else {
+      setSelectedStudent(null);
+    }
+  }, [id]);
+
+  // Load fee ledger on-demand
+  useEffect(() => {
+    if (selectedStudent && activeTab === 'fees') {
+      fetchStudentFees(selectedStudent.id);
+    }
+  }, [selectedStudent?.id, activeTab]);
+
   useEffect(() => {
     fetchStudents();
   }, [search, statusFilter, batchFilter]);
@@ -192,16 +240,6 @@ export const Students: React.FC = () => {
   useEffect(() => {
     fetchMetadata();
   }, []);
-
-  const selectStudentProfile = async (id: string) => {
-    try {
-      const res = await api.get(`/students/${id}`);
-      setSelectedStudent(res.data.data);
-      setActiveTab('profile');
-      setLedgerYearFilter('all');
-      setLedgerTypeFilter('all');
-    } catch { }
-  };
 
   const handleOpenCreateForm = () => {
     setIsEditMode(false);
@@ -352,17 +390,17 @@ export const Students: React.FC = () => {
       });
       setIsCollectOpen(false);
       selectStudentProfile(selectedStudent.id);
+      fetchStudentFees(selectedStudent.id);
     } catch (err: any) {
       alert(err.response?.data?.message || 'Payment collection failed');
     }
   };
 
-  const handleDeleteStudent = async (id: string) => {
+  const handleDeleteStudent = async (studentId: string) => {
     if (window.confirm('Are you sure you want to delete this student record?')) {
       try {
-        await api.delete(`/students/${id}`);
-        setSelectedStudent(null);
-        fetchStudents();
+        await api.delete(`/students/${studentId}`);
+        navigate('/students');
       } catch { }
     }
   };
@@ -377,7 +415,7 @@ export const Students: React.FC = () => {
         /* ========================================================= */
         <div className="space-y-6">
           <button
-            onClick={() => { setSelectedStudent(null); fetchStudents(); }}
+            onClick={() => navigate('/students')}
             className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground bg-secondary border border-border px-3 py-1.5 rounded-xl transition-all"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -556,177 +594,184 @@ export const Students: React.FC = () => {
             )}
 
             {/* TAB 3: FEES LEDGER */}
-            {activeTab === 'fees' && (() => {
-              // Group fees by year for analytics
-              const yearAnalytics = (selectedStudent.fees || []).reduce((acc: Record<number, { total: number; paid: number; pending: number }>, f: any) => {
-                const year = new Date(f.dueDate).getFullYear();
-                if (!acc[year]) {
-                  acc[year] = { total: 0, paid: 0, pending: 0 };
-                }
-                const total = Number(f.amount);
-                const paid = f.payments ? f.payments.reduce((sum: number, p: any) => sum + Number(p.amountPaid), 0) : 0;
-                const pending = f.status === 'PAID' ? 0 : Math.max(0, total - paid);
+            {activeTab === 'fees' && (
+              loadingFees ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3 text-xs text-muted-foreground font-semibold">
+                  <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span>Loading fee ledger details...</span>
+                </div>
+              ) : (() => {
+                // Group fees by year for analytics
+                const yearAnalytics = (fees || []).reduce((acc: Record<number, { total: number; paid: number; pending: number }>, f: any) => {
+                  const year = new Date(f.dueDate).getFullYear();
+                  if (!acc[year]) {
+                    acc[year] = { total: 0, paid: 0, pending: 0 };
+                  }
+                  const total = Number(f.amount);
+                  const paid = f.payments ? f.payments.reduce((sum: number, p: any) => sum + Number(p.amountPaid), 0) : 0;
+                  const pending = f.status === 'PAID' ? 0 : Math.max(0, total - paid);
 
-                acc[year].total += total;
-                acc[year].paid += paid;
-                acc[year].pending += pending;
-                return acc;
-              }, {});
+                  acc[year].total += total;
+                  acc[year].paid += paid;
+                  acc[year].pending += pending;
+                  return acc;
+                }, {});
 
-              // Get unique years in descending order for the filter dropdown
-              const ledgerYears = Array.from(new Set((selectedStudent.fees || []).map((f: any) => new Date(f.dueDate).getFullYear().toString()))).sort().reverse();
+                // Get unique years in descending order for the filter dropdown
+                const ledgerYears = Array.from(new Set((fees || []).map((f: any) => new Date(f.dueDate).getFullYear().toString()))).sort().reverse();
 
-              // Filter fees list by selected year & billing type
-              const filteredFees = (selectedStudent.fees || []).filter((f: any) => {
-                const matchYear = ledgerYearFilter === 'all' || new Date(f.dueDate).getFullYear().toString() === ledgerYearFilter;
-                const matchType = ledgerTypeFilter === 'all' || f.type === ledgerTypeFilter;
-                return matchYear && matchType;
-              });
+                // Filter fees list by selected year & billing type
+                const filteredFees = (fees || []).filter((f: any) => {
+                  const matchYear = ledgerYearFilter === 'all' || new Date(f.dueDate).getFullYear().toString() === ledgerYearFilter;
+                  const matchType = ledgerTypeFilter === 'all' || f.type === ledgerTypeFilter;
+                  return matchYear && matchType;
+                });
 
-              return (
-                <div className="space-y-6 text-xs animate-fade-in">
+                return (
+                  <div className="space-y-6 text-xs animate-fade-in">
 
-                  {/* Analytics Section */}
-                  <div>
-                    <h5 className="font-extrabold text-[10px] uppercase tracking-wider text-muted-foreground mb-3">Year-wise Fee Analytics</h5>
-                    {Object.keys(yearAnalytics).length === 0 ? (
-                      <div className="bg-secondary/20 border border-border p-4 rounded-xl text-center text-muted-foreground">
-                        No financial statistics available.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                        {Object.entries(yearAnalytics).map(([year, stats]: any) => (
-                          <div key={year} className="bg-secondary/40 border border-border/80 p-4 rounded-2xl shadow-sm relative overflow-hidden group hover:border-primary/30 transition-all duration-300">
-                            {/* Decorative background circle */}
-                            <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-primary/5 group-hover:scale-125 transition-transform duration-500" />
+                    {/* Analytics Section */}
+                    <div>
+                      <h5 className="font-extrabold text-[10px] uppercase tracking-wider text-muted-foreground mb-3">Year-wise Fee Analytics</h5>
+                      {Object.keys(yearAnalytics).length === 0 ? (
+                        <div className="bg-secondary/20 border border-border p-4 rounded-xl text-center text-muted-foreground">
+                          No financial statistics available.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                          {Object.entries(yearAnalytics).map(([year, stats]: any) => (
+                            <div key={year} className="bg-secondary/40 border border-border/80 p-4 rounded-2xl shadow-sm relative overflow-hidden group hover:border-primary/30 transition-all duration-300">
+                              {/* Decorative background circle */}
+                              <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-primary/5 group-hover:scale-125 transition-transform duration-500" />
 
-                            <div className="flex justify-between items-center border-b border-border/60 pb-2 mb-3">
-                              <span className="font-black text-sm text-foreground tracking-tight">Year {year}</span>
-                              <span className="text-[9px] font-extrabold tracking-wider text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full uppercase">Summary</span>
+                              <div className="flex justify-between items-center border-b border-border/60 pb-2 mb-3">
+                                <span className="font-black text-sm text-foreground tracking-tight">Year {year}</span>
+                                <span className="text-[9px] font-extrabold tracking-wider text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full uppercase">Summary</span>
+                              </div>
+                              <div className="space-y-1.5">
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-muted-foreground font-medium">Total Invoiced</span>
+                                  <span className="font-extrabold text-foreground">₹{stats.total.toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-muted-foreground font-medium">Total Paid</span>
+                                  <span className="font-black text-emerald-500">₹{stats.paid.toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-muted-foreground font-medium">Total Pending</span>
+                                  <span className={`font-black ${stats.pending > 0 ? 'text-rose-500' : 'text-muted-foreground'}`}>
+                                    ₹{stats.pending.toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="space-y-1.5">
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="text-muted-foreground font-medium">Total Invoiced</span>
-                                <span className="font-extrabold text-foreground">₹{stats.total.toLocaleString('en-IN')}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="text-muted-foreground font-medium">Total Paid</span>
-                                <span className="font-black text-emerald-500">₹{stats.paid.toLocaleString('en-IN')}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="text-muted-foreground font-medium">Total Pending</span>
-                                <span className={`font-black ${stats.pending > 0 ? 'text-rose-500' : 'text-muted-foreground'}`}>
-                                  ₹{stats.pending.toLocaleString('en-IN')}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <hr className="border-border/60 my-6" />
-
-                  {/* Header & Year/Type Filters */}
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                    <h4 className="font-extrabold text-sm text-primary">Invoices & Bills Ledger</h4>
-                    <div className="flex flex-wrap items-center gap-4">
-                      {/* Year Filter */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px]">Year:</span>
-                        <select
-                          value={ledgerYearFilter}
-                          onChange={(e) => setLedgerYearFilter(e.target.value)}
-                          className="bg-card border border-border text-foreground py-1.5 px-3 rounded-xl font-semibold shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-[11px]"
-                        >
-                          <option value="all">All Years</option>
-                          {ledgerYears.map((yr: string) => (
-                            <option key={yr} value={yr}>{yr}</option>
                           ))}
-                        </select>
-                      </div>
+                        </div>
+                      )}
+                    </div>
 
-                      {/* Billing Type Filter */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px]">Billing Type:</span>
-                        <select
-                          value={ledgerTypeFilter}
-                          onChange={(e) => setLedgerTypeFilter(e.target.value)}
-                          className="bg-card border border-border text-foreground py-1.5 px-3 rounded-xl font-semibold shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-[11px]"
-                        >
-                          <option value="all">All Types</option>
-                          <option value="MONTHLY">Monthly</option>
-                          <option value="REGISTRATION">Registration</option>
-                          <option value="EVENT">Event</option>
-                          <option value="OTHER">Other</option>
-                        </select>
+                    <hr className="border-border/60 my-6" />
+
+                    {/* Header & Year/Type Filters */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <h4 className="font-extrabold text-sm text-primary">Invoices & Bills Ledger</h4>
+                      <div className="flex flex-wrap items-center gap-4">
+                        {/* Year Filter */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px]">Year:</span>
+                          <select
+                            value={ledgerYearFilter}
+                            onChange={(e) => setLedgerYearFilter(e.target.value)}
+                            className="bg-card border border-border text-foreground py-1.5 px-3 rounded-xl font-semibold shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-[11px]"
+                          >
+                            <option value="all">All Years</option>
+                            {ledgerYears.map((yr: string) => (
+                              <option key={yr} value={yr}>{yr}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Billing Type Filter */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px]">Billing Type:</span>
+                          <select
+                            value={ledgerTypeFilter}
+                            onChange={(e) => setLedgerTypeFilter(e.target.value)}
+                            className="bg-card border border-border text-foreground py-1.5 px-3 rounded-xl font-semibold shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-[11px]"
+                          >
+                            <option value="all">All Types</option>
+                            <option value="MONTHLY">Monthly</option>
+                            <option value="REGISTRATION">Registration</option>
+                            <option value="EVENT">Event</option>
+                            <option value="OTHER">Other</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Ledger Table */}
-                  <div className="border border-border rounded-xl overflow-hidden">
-                    <table className="w-full text-left">
-                      <thead className="bg-secondary/50 border-b border-border font-bold">
-                        <tr>
-                          <th className="p-3">Billing Type</th>
-                          <th className="p-3">Amount</th>
-                          <th className="p-3">Due Date</th>
-                          <th className="p-3">Status</th>
-                          <th className="p-3">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {filteredFees.length === 0 ? (
+                    {/* Ledger Table */}
+                    <div className="border border-border rounded-xl overflow-hidden">
+                      <table className="w-full text-left">
+                        <thead className="bg-secondary/50 border-b border-border font-bold">
                           <tr>
-                            <td colSpan={5} className="p-6 text-center text-muted-foreground">No matching fee invoices recorded for the selected filters.</td>
+                            <th className="p-3">Billing Type</th>
+                            <th className="p-3">Amount</th>
+                            <th className="p-3">Due Date</th>
+                            <th className="p-3">Status</th>
+                            <th className="p-3">Action</th>
                           </tr>
-                        ) : (
-                          filteredFees.map((f: any) => (
-                            <tr key={f.id} className="hover:bg-secondary/10">
-                              <td className="p-3 font-semibold text-foreground uppercase tracking-wide text-[10px]">{f.type}</td>
-                              <td className="p-3 font-bold">₹{Number(f.amount).toLocaleString()}</td>
-                              <td className="p-3 text-muted-foreground">{new Date(f.dueDate).toLocaleDateString()}</td>
-                              <td className="p-3">
-                                <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${f.status === 'PAID'
-                                  ? 'bg-emerald-500/10 text-emerald-500'
-                                  : f.status === 'PARTIALLY_PAID'
-                                    ? 'bg-blue-500/10 text-blue-500'
-                                    : 'bg-rose-500/10 text-rose-500'
-                                  }`}>
-                                  {f.status}
-                                </span>
-                              </td>
-                              <td className="p-3">
-                                {f.status !== 'PAID' ? (
-                                  <button
-                                    onClick={() => openCollectFeeModal(f)}
-                                    className="flex items-center gap-1 text-[10px] font-bold text-primary hover:underline cursor-pointer"
-                                  >
-                                    <CreditCard className="h-3 w-3" />
-                                    <span>Collect</span>
-                                  </button>
-                                ) : (
-                                  f.payments && f.payments.length > 0 && (
-                                    <button
-                                      onClick={() => showReceipt(f.payments[0], f)}
-                                      className="text-[10px] text-primary font-bold hover:underline cursor-pointer"
-                                    >
-                                      View Receipt
-                                    </button>
-                                  )
-                                )}
-                              </td>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {filteredFees.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="p-6 text-center text-muted-foreground">No matching fee invoices recorded for the selected filters.</td>
                             </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                          ) : (
+                            filteredFees.map((f: any) => (
+                              <tr key={f.id} className="hover:bg-secondary/10">
+                                <td className="p-3 font-semibold text-foreground uppercase tracking-wide text-[10px]">{f.type}</td>
+                                <td className="p-3 font-bold">₹{Number(f.amount).toLocaleString()}</td>
+                                <td className="p-3 text-muted-foreground">{new Date(f.dueDate).toLocaleDateString()}</td>
+                                <td className="p-3">
+                                  <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${f.status === 'PAID'
+                                    ? 'bg-emerald-500/10 text-emerald-500'
+                                    : f.status === 'PARTIALLY_PAID'
+                                      ? 'bg-blue-500/10 text-blue-500'
+                                      : 'bg-rose-500/10 text-rose-500'
+                                    }`}>
+                                    {f.status}
+                                  </span>
+                                </td>
+                                <td className="p-3">
+                                  {f.status !== 'PAID' ? (
+                                    <button
+                                      onClick={() => openCollectFeeModal(f)}
+                                      className="flex items-center gap-1 text-[10px] font-bold text-primary hover:underline cursor-pointer"
+                                    >
+                                      <CreditCard className="h-3 w-3" />
+                                      <span>Collect</span>
+                                    </button>
+                                  ) : (
+                                    f.payments && f.payments.length > 0 && (
+                                      <button
+                                        onClick={() => showReceipt(f.payments[0], f)}
+                                        className="text-[10px] text-primary font-bold hover:underline cursor-pointer"
+                                      >
+                                        View Receipt
+                                      </button>
+                                    )
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()
+            )}
 
             {/* TAB 4: DOCUMENTS */}
             {activeTab === 'docs' && (
@@ -924,7 +969,7 @@ export const Students: React.FC = () => {
                         </td>
                         <td className="p-4">
                           <button
-                            onClick={() => selectStudentProfile(s.id)}
+                            onClick={() => navigate(`/student/${s.id}`)}
                             className="text-xs text-primary font-bold hover:underline"
                           >
                             View Profile

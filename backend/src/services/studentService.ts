@@ -71,13 +71,6 @@ export class StudentService {
             },
           },
         },
-        fees: {
-          where: { isActive: true },
-          include: {
-            payments: { where: { isActive: true } },
-          },
-          orderBy: { dueDate: 'desc' },
-        },
         attendances: {
           where: { isActive: true },
           orderBy: { date: 'desc' },
@@ -91,6 +84,32 @@ export class StudentService {
     }
 
     return student;
+  }
+
+  static async getPaymentDetails(orgId: string, studentId: string) {
+    const student = await prisma.student.findFirst({
+      where: { id: studentId, organizationId: orgId, isActive: true },
+    });
+
+    if (!student) {
+      throw new NotFoundError('Student not found');
+    }
+
+    return prisma.fee.findMany({
+      where: {
+        studentId,
+        organizationId: orgId,
+        isActive: true,
+      },
+      include: {
+        payments: {
+          where: { isActive: true },
+        },
+      },
+      orderBy: {
+        dueDate: 'desc',
+      },
+    });
   }
 
   static async create(orgId: string, data: any, userId: string) {
@@ -300,7 +319,11 @@ export class StudentService {
         }
       }
 
-      if (courseIdToUse && student.fees.length === 0) {
+      const existingFeeCount = await tx.fee.count({
+        where: { studentId: id, isActive: true },
+      });
+
+      if (courseIdToUse && existingFeeCount === 0) {
         const course = await tx.course.findFirst({
           where: { id: courseIdToUse, organizationId: orgId, isActive: true },
         });

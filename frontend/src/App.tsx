@@ -82,6 +82,14 @@ export const App: React.FC = () => {
           }
         />
         <Route
+          path="/student/:id"
+          element={
+            <ProtectedRoute>
+              <Students />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/courses"
           element={
             <ProtectedRoute>

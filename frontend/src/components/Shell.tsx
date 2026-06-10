@@ -128,7 +128,9 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
           {filteredNavItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path;
+            const isActive = item.path === '/students'
+              ? (location.pathname === '/students' || location.pathname.startsWith('/student/'))
+              : location.pathname === item.path;
             return (
               <Link
                 key={item.path}
@@ -298,7 +300,9 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
             <nav className="flex-1 space-y-1.5">
               {filteredNavItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = location.pathname === item.path;
+                const isActive = item.path === '/students'
+                  ? (location.pathname === '/students' || location.pathname.startsWith('/student/'))
+                  : location.pathname === item.path;
                 return (
                   <Link
                     key={item.path}
