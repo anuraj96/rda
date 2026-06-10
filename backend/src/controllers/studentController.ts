@@ -11,9 +11,21 @@ export class StudentController {
       const batchId = req.query.batchId as string;
       const search = req.query.search as string;
       const status = req.query.status as string;
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
 
-      const students = await StudentService.list(orgId, branchId, { batchId, search, status });
-      return sendResponse(res, 200, 'Students directory retrieved successfully', students);
+      const result = await StudentService.list(orgId, branchId, { batchId, search, status, page, limit });
+
+      if (page !== undefined && limit !== undefined && result && typeof result === 'object' && 'data' in result) {
+        return sendResponse(res, 200, 'Students directory retrieved successfully', result.data, {
+          total: result.total,
+          page,
+          limit,
+          totalPages: Math.ceil(result.total / limit),
+        });
+      }
+
+      return sendResponse(res, 200, 'Students directory retrieved successfully', result);
     } catch (error) {
       next(error);
     }
@@ -26,6 +38,18 @@ export class StudentController {
 
       const student = await StudentService.getById(orgId, id);
       return sendResponse(res, 200, 'Student details retrieved successfully', student);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getPaymentDetails(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const orgId = req.orgId!;
+      const { id } = req.params;
+
+      const paymentDetails = await StudentService.getPaymentDetails(orgId, id);
+      return sendResponse(res, 200, 'Student payment details retrieved successfully', paymentDetails);
     } catch (error) {
       next(error);
     }
@@ -93,6 +117,27 @@ export class StudentController {
       return sendResponse(res, 200, 'Student document deleted successfully');
     } catch (error) {
       next(error);
+    }
+  }
+
+  static async bulkCreate(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const orgId = req.orgId!;
+      const userId = req.user!.id;
+      const { branchId, students } = req.body;
+
+      if (!branchId) {
+        return res.status(400).json({ success: false, message: 'Branch ID is required for bulk upload' });
+      }
+
+      if (!students || !Array.isArray(students) || students.length === 0) {
+        return res.status(400).json({ success: false, message: 'No student records found to import' });
+      }
+
+      const created = await StudentService.bulkCreate(orgId, branchId, students, userId);
+      return sendResponse(res, 201, `${created.length} students imported successfully`, created);
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Bulk upload failed' });
     }
   }
 }

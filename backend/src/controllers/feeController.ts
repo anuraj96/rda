@@ -10,12 +10,13 @@ export class FeeController {
       const branchId = req.branchId; // Locked from tenant isolation
       const status = req.query.status as string;
       const studentId = req.query.studentId as string;
+      const type = req.query.type as string;
       const search = req.query.search as string;
       const month = req.query.month as string;
       const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
 
-      const { data, total } = await FinanceService.listFees(orgId, branchId, { status, studentId, search, month, page, limit });
+      const { data, total } = await FinanceService.listFees(orgId, branchId, { status, studentId, type, search, month, page, limit });
       return sendResponse(res, 200, 'Fees list retrieved successfully', data, {
         total,
         page,

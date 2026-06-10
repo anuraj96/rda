@@ -1,19 +1,139 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
+// @ts-ignore
+import html2pdf from 'html2pdf.js';
 import {
   Plus, Edit2, Trash2, Search, SlidersHorizontal, MapPin, Phone, Mail, Users, FileText, Upload, Calendar,
   ArrowLeft, CreditCard, Clock, Sparkles, BookOpen, AlertCircle
 } from 'lucide-react';
 
+const generateTuitionReceiptHtml = (payment: any, fee: any) => {
+  const receiptNumber = payment?.receiptNumber || 'N/A';
+  const paymentDate = payment?.paymentDate ? new Date(payment.paymentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+  const studentName = fee?.student?.name || 'N/A';
+  const admissionNumber = fee?.student?.admissionNumber || 'N/A';
+  const billingCategory = fee?.type || 'N/A';
+  const feePeriod = fee?.type === 'MONTHLY' && fee?.dueDate ? new Date(fee.dueDate).toLocaleDateString('default', { month: 'long', year: 'numeric' }) : '';
+  const paymentMode = payment?.paymentMode || 'N/A';
+  const transactionId = payment?.transactionId || '';
+  const amountPaid = Number(payment?.amountPaid || 0).toLocaleString('en-IN');
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Receipt_${receiptNumber}</title>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; color: #1f2937; padding: 40px; margin: 0; background: #ffffff; }
+    .container { max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 16px; padding: 32px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 24px; }
+    .logo-container { display: flex; align-items: center; gap: 12px; }
+    .logo { height: 48px; border-radius: 8px; }
+    .title { font-size: 18px; font-weight: 800; color: #1e3a8a; margin: 0; letter-spacing: 0.5px; line-height: 1.2; }
+    .subtitle { font-size: 10px; color: #3b82f6; font-weight: 800; text-transform: uppercase; margin-top: 4px; letter-spacing: 1px; }
+    .meta-grid { display: grid; grid-template-cols: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .meta-item { background: #f9fafb; border: 1px solid #f3f4f6; padding: 12px; border-radius: 8px; }
+    .meta-label { font-size: 9px; font-weight: 700; color: #9ca3af; text-transform: uppercase; margin-bottom: 4px; }
+    .meta-val { font-size: 13px; font-weight: 700; color: #111827; }
+    .section-title { font-size: 10px; font-weight: 800; color: #4b5563; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
+    .details-box { background: #f3f4f6; border-radius: 12px; padding: 16px; margin-bottom: 24px; }
+    .details-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 12px; }
+    .details-row:not(:last-child) { border-bottom: 1px dashed #e5e7eb; }
+    .total-row { display: flex; justify-content: space-between; padding-top: 16px; border-top: 2px solid #e5e7eb; margin-top: 16px; font-weight: 900; font-size: 15px; }
+    .total-amount { color: #10b981; }
+    .footer { text-align: center; margin-top: 32px; font-size: 10px; color: #9ca3af; line-height: 1.6; font-style: italic; }
+    @media print {
+      body { padding: 20px; }
+      .container { border: none; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo-container">
+        <img class="logo" src="${window.location.origin}/dlogo.png" alt="RDA Logo" onerror="this.style.display='none'" />
+        <div>
+          <div class="title">RUDRESHWAR DANCE ACADEMY</div>
+          <div class="subtitle">Official Payment Receipt</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="meta-grid">
+      <div class="meta-item">
+        <div class="meta-label">Receipt Number</div>
+        <div class="meta-val">${receiptNumber}</div>
+      </div>
+      <div class="meta-item" style="text-align: right;">
+        <div class="meta-label">Payment Date</div>
+        <div class="meta-val">${paymentDate}</div>
+      </div>
+    </div>
+
+    <div class="details-box">
+      <div class="section-title">Received From</div>
+      <div style="font-size: 14px; font-weight: 800; color: #111827;">${studentName}</div>
+      <div style="font-size: 11px; color: #4b5563; margin-top: 4px;">Admission No: ${admissionNumber}</div>
+    </div>
+
+    <div class="section-title">Payment Particulars</div>
+    <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; background: #ffffff;">
+      <div class="details-row">
+        <span>Invoiced Category</span>
+        <span style="font-weight: 700; text-transform: uppercase; color: #3b82f6;">${billingCategory}${feePeriod ? ` (${feePeriod})` : ''}</span>
+      </div>
+      <div class="details-row">
+        <span>Payment Method</span>
+        <span style="font-weight: 700;">${paymentMode}</span>
+      </div>
+      ${transactionId ? `
+      <div class="details-row">
+        <span>Transaction ID</span>
+        <span style="font-family: monospace; font-weight: 600;">${transactionId}</span>
+      </div>
+      ` : ''}
+      <div class="total-row">
+        <span>TOTAL AMOUNT PAID</span>
+        <span class="total-amount">₹${amountPaid}</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      This is an electronically generated receipt and does not require a physical signature.
+    </div>
+  </div>
+</body>
+</html>
+  `;
+};
+
 export const Students: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, activeBranchId } = useAuthStore();
+  const navigate = useNavigate();
+  const { id } = useParams<{ id?: string }>();
+
   const [students, setStudents] = useState<any[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [batchFilter, setBatchFilter] = useState('');
+  const [ledgerYearFilter, setLedgerYearFilter] = useState<string>('all');
+  const [ledgerTypeFilter, setLedgerTypeFilter] = useState<string>('all');
+
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+
+  // New states for payments/fees
+  const [fees, setFees] = useState<any[]>([]);
+  const [loadingFees, setLoadingFees] = useState(false);
 
   // Form toggles
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -52,15 +172,21 @@ export const Students: React.FC = () => {
   const [amountPaid, setAmountPaid] = useState('');
   const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CARD' | 'BANK_TRANSFER'>('UPI');
   const [transactionId, setTransactionId] = useState('');
-
-  const fetchStudents = async () => {
+  const fetchStudents = async (targetPage = page) => {
     try {
       setLoading(true);
       const res = await api.get('/students', {
-        params: { search, status: statusFilter, batchId: batchFilter }
+        params: { search, status: statusFilter, batchId: batchFilter, page: targetPage, limit: 10 }
       });
       setStudents(res.data.data);
-    } catch {} finally {
+      if (res.data.meta) {
+        setTotalPages(res.data.meta.totalPages || 1);
+        setTotalRecords(res.data.meta.total || 0);
+      } else {
+        setTotalPages(1);
+        setTotalRecords(res.data.data?.length || 0);
+      }
+    } catch { } finally {
       setLoading(false);
     }
   };
@@ -75,24 +201,62 @@ export const Students: React.FC = () => {
       setBranches(branchesRes.data.data);
       setCourses(coursesRes.data.data);
       setBatches(batchesRes.data.data);
-    } catch {}
+    } catch { }
   };
 
+  const fetchStudentFees = async (studentId: string) => {
+    try {
+      setLoadingFees(true);
+      const res = await api.get(`/students/${studentId}/payment-details`);
+      setFees(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch payment details', err);
+    } finally {
+      setLoadingFees(false);
+    }
+  };
+
+  const selectStudentProfile = async (studentId: string, resetTab = false) => {
+    try {
+      const res = await api.get(`/students/${studentId}`);
+      setSelectedStudent(res.data.data);
+      if (resetTab) {
+        setActiveTab('profile');
+        setLedgerYearFilter('all');
+        setLedgerTypeFilter('all');
+      }
+    } catch { }
+  };
+
+  const isMountedRef = React.useRef(false);
+
+  // URL-driven profile loader
   useEffect(() => {
-    fetchStudents();
-  }, [search, statusFilter, batchFilter]);
+    if (id) {
+      selectStudentProfile(id, true);
+    } else {
+      setSelectedStudent(null);
+      if (isMountedRef.current) {
+        fetchStudents(page);
+      }
+    }
+    isMountedRef.current = true;
+  }, [id]);
+
+  // Load fee ledger on-demand
+  useEffect(() => {
+    if (selectedStudent && activeTab === 'fees') {
+      fetchStudentFees(selectedStudent.id);
+    }
+  }, [selectedStudent?.id, activeTab]);
+
+  useEffect(() => {
+    fetchStudents(page);
+  }, [page, search, statusFilter, batchFilter]);
 
   useEffect(() => {
     fetchMetadata();
   }, []);
-
-  const selectStudentProfile = async (id: string) => {
-    try {
-      const res = await api.get(`/students/${id}`);
-      setSelectedStudent(res.data.data);
-      setActiveTab('profile');
-    } catch {}
-  };
 
   const handleOpenCreateForm = () => {
     setIsEditMode(false);
@@ -128,7 +292,7 @@ export const Students: React.FC = () => {
     setEmergencyContact(selectedStudent.emergencyContact);
     setJoiningDate(selectedStudent.joiningDate ? selectedStudent.joiningDate.split('T')[0] : '');
     setBranchId(selectedStudent.branchId || '');
-    
+
     const activeBatch = selectedStudent.batches?.find((b: any) => b.status === 'ACTIVE');
     setCourseId(activeBatch?.batch?.courseId || '');
     setBatchId(activeBatch?.batchId || '');
@@ -190,7 +354,7 @@ export const Students: React.FC = () => {
       setDocUrl('');
       // Reload profile
       selectStudentProfile(selectedStudent.id);
-    } catch {}
+    } catch { }
   };
 
   const handleDeleteDocument = async (docId: string) => {
@@ -198,8 +362,26 @@ export const Students: React.FC = () => {
       try {
         await api.delete(`/students/documents/${docId}`);
         selectStudentProfile(selectedStudent.id);
-      } catch {}
+      } catch { }
     }
+  };
+
+  const showReceipt = (payment: any, fee: any) => {
+    setSelectedReceipt({ payment, fee: { ...fee, student: selectedStudent } });
+  };
+
+  const downloadReceiptPDF = (htmlContent: string, fileName: string) => {
+    const element = document.createElement('div');
+    element.innerHTML = htmlContent;
+    const opt = {
+      margin: 10,
+      filename: fileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    // @ts-ignore
+    html2pdf().set(opt).from(element).save();
   };
 
   const openCollectFeeModal = (fee: any) => {
@@ -225,32 +407,32 @@ export const Students: React.FC = () => {
       });
       setIsCollectOpen(false);
       selectStudentProfile(selectedStudent.id);
+      fetchStudentFees(selectedStudent.id);
     } catch (err: any) {
       alert(err.response?.data?.message || 'Payment collection failed');
     }
   };
 
-  const handleDeleteStudent = async (id: string) => {
+  const handleDeleteStudent = async (studentId: string) => {
     if (window.confirm('Are you sure you want to delete this student record?')) {
       try {
-        await api.delete(`/students/${id}`);
-        setSelectedStudent(null);
-        fetchStudents();
-      } catch {}
+        await api.delete(`/students/${studentId}`);
+        navigate('/students');
+      } catch { }
     }
   };
 
   return (
     <div className="space-y-6">
-      
+
       {selectedStudent ? (
-        
+
         /* ========================================================= */
         /* STUDENT PROFILE DETAILED VIEW                            */
         /* ========================================================= */
         <div className="space-y-6">
           <button
-            onClick={() => { setSelectedStudent(null); fetchStudents(); }}
+            onClick={() => navigate('/students')}
             className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground bg-secondary border border-border px-3 py-1.5 rounded-xl transition-all"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -274,13 +456,12 @@ export const Students: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-center gap-2">
-              <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                selectedStudent.status === 'ACTIVE'
-                  ? 'bg-emerald-500/10 text-emerald-500'
-                  : selectedStudent.status === 'INACTIVE'
+              <span className={`text-xs font-bold px-3 py-1 rounded-full ${selectedStudent.status === 'ACTIVE'
+                ? 'bg-emerald-500/10 text-emerald-500'
+                : selectedStudent.status === 'INACTIVE'
                   ? 'bg-amber-500/10 text-amber-500'
                   : 'bg-rose-500/10 text-rose-500'
-              }`}>
+                }`}>
                 {selectedStudent.status}
               </span>
               <button
@@ -305,9 +486,8 @@ export const Students: React.FC = () => {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`pb-2.5 px-1 capitalize transition-all border-b-2 ${
-                  activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
+                className={`pb-2.5 px-1 capitalize transition-all border-b-2 ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
               >
                 {tab === 'docs' ? 'Documents' : tab === 'fees' ? 'Fee Ledger' : tab}
               </button>
@@ -316,7 +496,7 @@ export const Students: React.FC = () => {
 
           {/* Tabs Display Container */}
           <div className="bg-card border border-border rounded-2xl p-6 shadow-sm min-h-64">
-            
+
             {/* TAB 1: PROFILE */}
             {activeTab === 'profile' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-xs">
@@ -415,9 +595,8 @@ export const Students: React.FC = () => {
                           <tr key={a.id} className="hover:bg-secondary/10">
                             <td className="p-3 font-semibold">{new Date(a.date).toLocaleDateString()}</td>
                             <td className="p-3">
-                              <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${
-                                a.status === 'PRESENT' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
-                              }`}>
+                              <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${a.status === 'PRESENT' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
+                                }`}>
                                 {a.status}
                               </span>
                             </td>
@@ -433,68 +612,188 @@ export const Students: React.FC = () => {
 
             {/* TAB 3: FEES LEDGER */}
             {activeTab === 'fees' && (
-              <div className="space-y-6 text-xs">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-extrabold text-sm text-primary">Invoices & Bills Ledger</h4>
+              loadingFees ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3 text-xs text-muted-foreground font-semibold">
+                  <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span>Loading fee ledger details...</span>
                 </div>
+              ) : (() => {
+                // Group fees by year for analytics
+                const yearAnalytics = (fees || []).reduce((acc: Record<number, { total: number; paid: number; pending: number }>, f: any) => {
+                  const year = new Date(f.dueDate).getFullYear();
+                  if (!acc[year]) {
+                    acc[year] = { total: 0, paid: 0, pending: 0 };
+                  }
+                  const total = Number(f.amount);
+                  const paid = f.payments ? f.payments.reduce((sum: number, p: any) => sum + Number(p.amountPaid), 0) : 0;
+                  const pending = f.status === 'PAID' ? 0 : Math.max(0, total - paid);
 
-                <div className="border border-border rounded-xl overflow-hidden">
-                  <table className="w-full text-left">
-                    <thead className="bg-secondary/50 border-b border-border font-bold">
-                      <tr>
-                        <th className="p-3">Billing Type</th>
-                        <th className="p-3">Amount</th>
-                        <th className="p-3">Due Date</th>
-                        <th className="p-3">Status</th>
-                        <th className="p-3">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {selectedStudent.fees.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="p-6 text-center text-muted-foreground">No fee invoices recorded.</td>
-                        </tr>
+                  acc[year].total += total;
+                  acc[year].paid += paid;
+                  acc[year].pending += pending;
+                  return acc;
+                }, {});
+
+                // Get unique years in descending order for the filter dropdown
+                const ledgerYears = Array.from(new Set((fees || []).map((f: any) => new Date(f.dueDate).getFullYear().toString()))).sort().reverse();
+
+                // Filter fees list by selected year & billing type
+                const filteredFees = (fees || []).filter((f: any) => {
+                  const matchYear = ledgerYearFilter === 'all' || new Date(f.dueDate).getFullYear().toString() === ledgerYearFilter;
+                  const matchType = ledgerTypeFilter === 'all' || f.type === ledgerTypeFilter;
+                  return matchYear && matchType;
+                });
+
+                return (
+                  <div className="space-y-6 text-xs animate-fade-in">
+
+                    {/* Analytics Section */}
+                    <div>
+                      <h5 className="font-extrabold text-[10px] uppercase tracking-wider text-muted-foreground mb-3">Year-wise Fee Analytics</h5>
+                      {Object.keys(yearAnalytics).length === 0 ? (
+                        <div className="bg-secondary/20 border border-border p-4 rounded-xl text-center text-muted-foreground">
+                          No financial statistics available.
+                        </div>
                       ) : (
-                        selectedStudent.fees.map((f: any) => (
-                          <tr key={f.id} className="hover:bg-secondary/10">
-                            <td className="p-3 font-semibold text-foreground uppercase tracking-wide text-[10px]">{f.type}</td>
-                            <td className="p-3 font-bold">₹{Number(f.amount).toLocaleString()}</td>
-                            <td className="p-3 text-muted-foreground">{new Date(f.dueDate).toLocaleDateString()}</td>
-                            <td className="p-3">
-                              <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${
-                                f.status === 'PAID'
-                                  ? 'bg-emerald-500/10 text-emerald-500'
-                                  : f.status === 'PARTIALLY_PAID'
-                                  ? 'bg-blue-500/10 text-blue-500'
-                                  : 'bg-rose-500/10 text-rose-500'
-                              }`}>
-                                {f.status}
-                              </span>
-                            </td>
-                            <td className="p-3">
-                              {f.status !== 'PAID' && (
-                                <button
-                                  onClick={() => openCollectFeeModal(f)}
-                                  className="flex items-center gap-1 text-[10px] font-bold text-primary hover:underline"
-                                >
-                                  <CreditCard className="h-3 w-3" />
-                                  <span>Collect</span>
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                          {Object.entries(yearAnalytics).map(([year, stats]: any) => (
+                            <div key={year} className="bg-secondary/40 border border-border/80 p-4 rounded-2xl shadow-sm relative overflow-hidden group hover:border-primary/30 transition-all duration-300">
+                              {/* Decorative background circle */}
+                              <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-primary/5 group-hover:scale-125 transition-transform duration-500" />
+
+                              <div className="flex justify-between items-center border-b border-border/60 pb-2 mb-3">
+                                <span className="font-black text-sm text-foreground tracking-tight">Year {year}</span>
+                                <span className="text-[9px] font-extrabold tracking-wider text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full uppercase">Summary</span>
+                              </div>
+                              <div className="space-y-1.5">
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-muted-foreground font-medium">Total Invoiced</span>
+                                  <span className="font-extrabold text-foreground">₹{stats.total.toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-muted-foreground font-medium">Total Paid</span>
+                                  <span className="font-black text-emerald-500">₹{stats.paid.toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-muted-foreground font-medium">Total Pending</span>
+                                  <span className={`font-black ${stats.pending > 0 ? 'text-rose-500' : 'text-muted-foreground'}`}>
+                                    ₹{stats.pending.toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                    </div>
+
+                    <hr className="border-border/60 my-6" />
+
+                    {/* Header & Year/Type Filters */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <h4 className="font-extrabold text-sm text-primary">Invoices & Bills Ledger</h4>
+                      <div className="flex flex-wrap items-center gap-4">
+                        {/* Year Filter */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px]">Year:</span>
+                          <select
+                            value={ledgerYearFilter}
+                            onChange={(e) => setLedgerYearFilter(e.target.value)}
+                            className="bg-card border border-border text-foreground py-1.5 px-3 rounded-xl font-semibold shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-[11px]"
+                          >
+                            <option value="all">All Years</option>
+                            {ledgerYears.map((yr: string) => (
+                              <option key={yr} value={yr}>{yr}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Billing Type Filter */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px]">Billing Type:</span>
+                          <select
+                            value={ledgerTypeFilter}
+                            onChange={(e) => setLedgerTypeFilter(e.target.value)}
+                            className="bg-card border border-border text-foreground py-1.5 px-3 rounded-xl font-semibold shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-[11px]"
+                          >
+                            <option value="all">All Types</option>
+                            <option value="MONTHLY">Monthly</option>
+                            <option value="REGISTRATION">Registration</option>
+                            <option value="EVENT">Event</option>
+                            <option value="OTHER">Other</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Ledger Table */}
+                    <div className="border border-border rounded-xl overflow-hidden">
+                      <table className="w-full text-left">
+                        <thead className="bg-secondary/50 border-b border-border font-bold">
+                          <tr>
+                            <th className="p-3">Billing Type</th>
+                            <th className="p-3">Amount</th>
+                            <th className="p-3">Due Date</th>
+                            <th className="p-3">Status</th>
+                            <th className="p-3">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {filteredFees.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="p-6 text-center text-muted-foreground">No matching fee invoices recorded for the selected filters.</td>
+                            </tr>
+                          ) : (
+                            filteredFees.map((f: any) => (
+                              <tr key={f.id} className="hover:bg-secondary/10">
+                                <td className="p-3 font-semibold text-foreground uppercase tracking-wide text-[10px]">{f.type}</td>
+                                <td className="p-3 font-bold">₹{Number(f.amount).toLocaleString()}</td>
+                                <td className="p-3 text-muted-foreground">{new Date(f.dueDate).toLocaleDateString()}</td>
+                                <td className="p-3">
+                                  <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${f.status === 'PAID'
+                                    ? 'bg-emerald-500/10 text-emerald-500'
+                                    : f.status === 'PARTIALLY_PAID'
+                                      ? 'bg-blue-500/10 text-blue-500'
+                                      : 'bg-rose-500/10 text-rose-500'
+                                    }`}>
+                                    {f.status}
+                                  </span>
+                                </td>
+                                <td className="p-3">
+                                  {f.status !== 'PAID' ? (
+                                    <button
+                                      onClick={() => openCollectFeeModal(f)}
+                                      className="flex items-center gap-1 text-[10px] font-bold text-primary hover:underline cursor-pointer"
+                                    >
+                                      <CreditCard className="h-3 w-3" />
+                                      <span>Collect</span>
+                                    </button>
+                                  ) : (
+                                    f.payments && f.payments.length > 0 && (
+                                      <button
+                                        onClick={() => showReceipt(f.payments[0], f)}
+                                        className="text-[10px] text-primary font-bold hover:underline cursor-pointer"
+                                      >
+                                        View Receipt
+                                      </button>
+                                    )
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()
             )}
 
             {/* TAB 4: DOCUMENTS */}
             {activeTab === 'docs' && (
               <div className="space-y-6 text-xs">
-                
+
                 {/* Upload Form */}
                 <form onSubmit={handleDocumentUpload} className="bg-secondary/35 border border-border p-4 rounded-xl flex flex-col sm:flex-row gap-3">
                   <div className="flex-1 space-y-1">
@@ -577,20 +876,29 @@ export const Students: React.FC = () => {
         /* MASTER STUDENT LIST GRID VIEW                             */
         /* ========================================================= */
         <div className="space-y-6">
-          
+
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h2 className="text-2xl font-extrabold tracking-tight">Student Directory</h2>
               <p className="text-sm text-muted-foreground mt-0.5">Manage admissions, view class mappings, and billing history.</p>
             </div>
-            <button
-              onClick={handleOpenCreateForm}
-              className="flex items-center gap-2 bg-primary hover:bg-primary/95 text-primary-foreground font-bold px-4 py-2 rounded-xl shadow-lg shadow-primary/20 transition-all cursor-pointer text-sm"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Admit Student</span>
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/students/import')}
+                className="flex items-center gap-2 bg-secondary hover:bg-secondary/80 border border-border text-foreground font-bold px-4 py-2 rounded-xl shadow-sm transition-all cursor-pointer text-sm"
+              >
+                <Upload className="h-4 w-4 text-muted-foreground" />
+                <span>Bulk Import</span>
+              </button>
+              <button
+                onClick={handleOpenCreateForm}
+                className="flex items-center gap-2 bg-primary hover:bg-primary/95 text-primary-foreground font-bold px-4 py-2 rounded-xl shadow-lg shadow-primary/20 transition-all cursor-pointer text-sm"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Admit Student</span>
+              </button>
+            </div>
           </div>
 
           {/* Filtering panel */}
@@ -601,14 +909,20 @@ export const Students: React.FC = () => {
                 type="text"
                 placeholder="Search by name, admission ID..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 className="w-full bg-secondary border border-border rounded-xl pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>
             <div>
               <select
                 value={batchFilter}
-                onChange={(e) => setBatchFilter(e.target.value)}
+                onChange={(e) => {
+                  setBatchFilter(e.target.value);
+                  setPage(1);
+                }}
                 className="w-full bg-secondary border border-border px-3 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
                 <option value="">All Batches</option>
@@ -620,7 +934,10 @@ export const Students: React.FC = () => {
             <div>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
                 className="w-full bg-secondary border border-border px-3 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
                 <option value="">All Statuses</option>
@@ -643,62 +960,91 @@ export const Students: React.FC = () => {
               No registered students found.
             </div>
           ) : (
-            <div className="border border-border rounded-2xl bg-card shadow-sm overflow-hidden text-xs">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-secondary/50 border-b border-border font-bold">
-                    <tr>
-                      <th className="p-4">Student Name</th>
-                      <th className="p-4">Admission #</th>
-                      <th className="p-4">Parent / Phone</th>
-                      <th className="p-4">Branch</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {students.map((s) => (
-                      <tr key={s.id} className="hover:bg-secondary/15">
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 bg-primary/10 text-primary font-bold flex items-center justify-center rounded-lg">
-                              {s.name.charAt(0)}
+            <div className="space-y-4">
+              <div className="border border-border rounded-2xl bg-card shadow-sm overflow-hidden text-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-secondary/50 border-b border-border font-bold">
+                      <tr>
+                        <th className="p-4">Student Name</th>
+                        <th className="p-4">Admission #</th>
+                        <th className="p-4">Parent / Phone</th>
+                        <th className="p-4">Branch</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {students.map((s) => (
+                        <tr key={s.id} className="hover:bg-secondary/15">
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 bg-primary/10 text-primary font-bold flex items-center justify-center rounded-lg">
+                                {s.name.charAt(0)}
+                              </div>
+                              <span className="font-semibold text-foreground">{s.name}</span>
                             </div>
-                            <span className="font-semibold text-foreground">{s.name}</span>
-                          </div>
-                        </td>
-                        <td className="p-4 font-mono font-semibold">{s.admissionNumber}</td>
-                        <td className="p-4">
-                          <div className="space-y-0.5">
-                            <div>{s.parentName}</div>
-                            <div className="text-muted-foreground">{s.parentPhone}</div>
-                          </div>
-                        </td>
-                        <td className="p-4 font-medium">{s.branch?.name.replace('Dance School ', '')}</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${
-                            s.status === 'ACTIVE'
+                          </td>
+                          <td className="p-4 font-mono font-semibold">{s.admissionNumber}</td>
+                          <td className="p-4">
+                            <div className="space-y-0.5">
+                              <div>{s.parentName}</div>
+                              <div className="text-muted-foreground">{s.parentPhone}</div>
+                            </div>
+                          </td>
+                          <td className="p-4 font-medium">{s.branch?.name.replace('Dance School ', '')}</td>
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${s.status === 'ACTIVE'
                               ? 'bg-emerald-500/10 text-emerald-500'
                               : s.status === 'INACTIVE'
-                              ? 'bg-amber-500/10 text-amber-500'
-                              : 'bg-rose-500/10 text-rose-500'
-                          }`}>
-                            {s.status}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <button
-                            onClick={() => selectStudentProfile(s.id)}
-                            className="text-xs text-primary font-bold hover:underline"
-                          >
-                            View Profile
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                                ? 'bg-amber-500/10 text-amber-500'
+                                : 'bg-rose-500/10 text-rose-500'
+                              }`}>
+                              {s.status}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <button
+                              onClick={() => navigate(`/student/${s.id}`)}
+                              className="text-xs text-primary font-bold hover:underline"
+                            >
+                              View Profile
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
+
+              {/* Pagination controls */}
+              {!loading && students.length > 0 && (
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2 text-xs font-semibold">
+                  <span className="text-muted-foreground">
+                    Showing students {((page - 1) * 10) + 1} - {Math.min(page * 10, totalRecords)} of {totalRecords} total students
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                    >
+                      Previous
+                    </button>
+                    <span className="flex items-center px-2 text-foreground">
+                      Page {page} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page >= totalPages}
+                      className="bg-card hover:bg-secondary/40 border border-border px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -710,7 +1056,7 @@ export const Students: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-end bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-md bg-card border-l border-border h-full p-6 overflow-y-auto flex flex-col justify-between shadow-2xl animate-slide-in">
             <div className="space-y-6">
-              
+
               {/* Header */}
               <div className="flex justify-between items-center pb-4 border-b border-border">
                 <h3 className="text-lg font-bold">{isEditMode ? 'Edit Student Profile' : 'New Student Admission Form'}</h3>
@@ -730,7 +1076,7 @@ export const Students: React.FC = () => {
 
               {/* Form Input fields */}
               <form onSubmit={handleSubmitAdmission} className="space-y-4 text-xs">
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="font-bold text-muted-foreground uppercase">Admission Number *</label>
@@ -1013,6 +1359,87 @@ export const Students: React.FC = () => {
         </div>
       )}
 
+      {/* 2. RECEIPT VIEWER POPUP OVERLAY */}
+      {selectedReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-6 animate-scale-in text-xs text-foreground">
+            <div className="flex justify-between items-center pb-2 border-b border-border">
+              <h3 className="font-extrabold text-sm text-primary uppercase">RUDRESHWAR DANCE ACADEMY RECEIPT</h3>
+              <button onClick={() => setSelectedReceipt(null)} className="p-1 hover:bg-secondary rounded-lg justify-center flex items-center">
+                <Plus className="h-5 w-5 rotate-45" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-between">
+                <div>
+                  <span className="text-muted-foreground block font-bold text-[9px] uppercase">Receipt Number</span>
+                  <span className="font-bold text-sm text-foreground">{selectedReceipt.payment.receiptNumber}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-muted-foreground block font-bold text-[9px] uppercase">Payment Date</span>
+                  <span className="font-bold text-foreground">{new Date(selectedReceipt.payment.paymentDate).toLocaleDateString()}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-secondary/50 border border-border rounded-xl space-y-1">
+                <span className="text-muted-foreground font-bold block text-[9px] uppercase">Received From</span>
+                <p className="font-extrabold text-foreground">{selectedReceipt.fee?.student?.name}</p>
+                <p className="text-[10px] text-muted-foreground">Admission: {selectedReceipt.fee?.student?.admissionNumber}</p>
+              </div>
+
+              <div className="divide-y divide-border">
+                <div className="py-2.5 flex justify-between font-bold">
+                  <span>Invoiced Item</span>
+                  <span className="uppercase text-[9px] tracking-wider text-primary">
+                    {selectedReceipt.fee?.type}
+                    {selectedReceipt.fee?.type === 'MONTHLY' && selectedReceipt.fee?.dueDate && ` (${new Date(selectedReceipt.fee.dueDate).toLocaleDateString('default', { month: 'long', year: 'numeric' })})`}
+                  </span>
+                </div>
+                <div className="py-2.5 flex justify-between font-medium text-muted-foreground">
+                  <span>Payment Channel</span>
+                  <span className="font-bold text-foreground">{selectedReceipt.payment.paymentMode}</span>
+                </div>
+                {selectedReceipt.payment.transactionId && (
+                  <div className="py-2.5 flex justify-between font-medium text-muted-foreground">
+                    <span>Transaction Reference</span>
+                    <span className="font-mono text-foreground">{selectedReceipt.payment.transactionId}</span>
+                  </div>
+                )}
+                <div className="py-3 flex justify-between font-black text-sm border-t border-border pt-3">
+                  <span>TOTAL AMOUNT PAID</span>
+                  <span className="text-emerald-500">₹{Number(selectedReceipt.payment.amountPaid).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <p className="text-[9px] text-center text-muted-foreground italic pt-2">This is an electronically generated receipt reference.</p>
+            </div>
+
+            <div className="pt-2 flex gap-3">
+              <button
+                onClick={() => setSelectedReceipt(null)}
+                className="flex-1 bg-secondary border border-border py-2 px-3 rounded-xl font-bold cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  const html = generateTuitionReceiptHtml(selectedReceipt.payment, selectedReceipt.fee);
+                  const studentName = selectedReceipt.fee?.student?.name || 'Student';
+                  const feePeriod = selectedReceipt.fee?.type === 'MONTHLY' && selectedReceipt.fee?.dueDate
+                    ? new Date(selectedReceipt.fee.dueDate).toLocaleDateString('default', { month: 'long', year: 'numeric' })
+                    : selectedReceipt.fee?.type || 'Payment';
+                  const fileName = `${studentName.replace(/\s+/g, '_')}-${feePeriod.replace(/\s+/g, '_')}-Payment.pdf`;
+                  downloadReceiptPDF(html, fileName);
+                }}
+                className="flex-1 bg-primary text-primary-foreground py-2 px-3 rounded-xl font-bold shadow-md cursor-pointer hover:bg-primary/95 transition-colors"
+              >
+                Download PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

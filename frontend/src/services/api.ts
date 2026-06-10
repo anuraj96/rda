@@ -16,7 +16,7 @@ api.interceptors.request.use(
     }
 
     const activeBranchId = localStorage.getItem('rda_active_branch_id');
-    if (activeBranchId) {
+    if (activeBranchId && activeBranchId !== 'all') {
       config.headers['x-branch-id'] = activeBranchId;
     }
 

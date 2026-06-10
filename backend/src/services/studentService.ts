@@ -5,8 +5,8 @@ export class StudentService {
   static async list(
     orgId: string,
     branchId?: string,
-    query?: { batchId?: string; search?: string; status?: string }
-  ) {
+    query?: { batchId?: string; search?: string; status?: string; page?: number; limit?: number }
+  ): Promise<any[] | { data: any[]; total: number }> {
     const whereClause: any = {
       organizationId: orgId,
       isActive: true,
@@ -34,6 +34,31 @@ export class StudentService {
         { admissionNumber: { contains: query.search, mode: 'insensitive' } },
         { parentName: { contains: query.search, mode: 'insensitive' } },
       ];
+    }
+
+    const total = await prisma.student.count({ where: whereClause });
+
+    if (query?.page !== undefined && query?.limit !== undefined) {
+      const skip = (query.page - 1) * query.limit;
+      const data = await prisma.student.findMany({
+        where: whereClause,
+        include: {
+          branch: { select: { name: true } },
+          batches: {
+            include: {
+              batch: {
+                include: {
+                  course: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: query.limit,
+      });
+      return { data, total };
     }
 
     return prisma.student.findMany({
@@ -71,13 +96,6 @@ export class StudentService {
             },
           },
         },
-        fees: {
-          where: { isActive: true },
-          include: {
-            payments: { where: { isActive: true } },
-          },
-          orderBy: { dueDate: 'desc' },
-        },
         attendances: {
           where: { isActive: true },
           orderBy: { date: 'desc' },
@@ -91,6 +109,32 @@ export class StudentService {
     }
 
     return student;
+  }
+
+  static async getPaymentDetails(orgId: string, studentId: string) {
+    const student = await prisma.student.findFirst({
+      where: { id: studentId, organizationId: orgId, isActive: true },
+    });
+
+    if (!student) {
+      throw new NotFoundError('Student not found');
+    }
+
+    return prisma.fee.findMany({
+      where: {
+        studentId,
+        organizationId: orgId,
+        isActive: true,
+      },
+      include: {
+        payments: {
+          where: { isActive: true },
+        },
+      },
+      orderBy: {
+        dueDate: 'desc',
+      },
+    });
   }
 
   static async create(orgId: string, data: any, userId: string) {
@@ -300,7 +344,11 @@ export class StudentService {
         }
       }
 
-      if (courseIdToUse && student.fees.length === 0) {
+      const existingFeeCount = await tx.fee.count({
+        where: { studentId: id, isActive: true },
+      });
+
+      if (courseIdToUse && existingFeeCount === 0) {
         const course = await tx.course.findFirst({
           where: { id: courseIdToUse, organizationId: orgId, isActive: true },
         });
@@ -421,6 +469,77 @@ export class StudentService {
         isActive: false,
         updatedBy: userId,
       },
+    });
+  }
+
+  static async bulkCreate(orgId: string, branchId: string, studentsData: any[], userId: string) {
+    if (!studentsData || studentsData.length === 0) {
+      throw new Error('No students data provided');
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const createdStudents = [];
+
+      for (const data of studentsData) {
+        if (!data.name || !data.parentName || !data.parentPhone || !data.address) {
+          throw new Error(`Student "${data.name || 'Unknown'}" is missing required fields (Name, Parent Name, Parent Phone, or Address)`);
+        }
+
+        let admissionNumber = data.admissionNumber;
+        if (!admissionNumber || admissionNumber.trim() === '') {
+          admissionNumber = `ADM-${Math.floor(10000 + Math.random() * 90000)}`;
+        }
+
+        const existing = await tx.student.findFirst({
+          where: {
+            organizationId: orgId,
+            admissionNumber,
+            isActive: true,
+          },
+        });
+        if (existing) {
+          throw new Error(`Admission number "${admissionNumber}" is already in use by another student`);
+        }
+
+        const dob = data.dob ? new Date(data.dob) : new Date('2015-01-01');
+        const joiningDate = data.joiningDate ? new Date(data.joiningDate) : new Date();
+
+        const student = await tx.student.create({
+          data: {
+            organizationId: orgId,
+            branchId,
+            admissionNumber,
+            name: data.name,
+            gender: data.gender || 'Female',
+            dob,
+            parentName: data.parentName,
+            parentPhone: data.parentPhone,
+            email: data.email || null,
+            address: data.address,
+            emergencyContact: data.emergencyContact || data.parentPhone,
+            joiningDate,
+            status: 'ACTIVE',
+            createdBy: userId,
+            updatedBy: userId,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            organizationId: orgId,
+            branchId,
+            userId,
+            action: 'CREATE_STUDENT_BULK',
+            entityName: 'Student',
+            entityId: student.id,
+            details: JSON.stringify({ admissionNumber: student.admissionNumber, name: student.name }),
+          },
+        });
+
+        createdStudents.push(student);
+      }
+
+      return createdStudents;
     });
   }
 }

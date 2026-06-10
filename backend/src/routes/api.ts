@@ -75,9 +75,11 @@ router.delete('/staff/:id', authMiddleware, tenantMiddleware, checkPermission('m
 // ==========================================
 router.get('/students', authMiddleware, tenantMiddleware, checkPermission('manage:students'), StudentController.list);
 router.get('/students/:id', authMiddleware, tenantMiddleware, checkPermission('manage:students'), StudentController.getById);
+router.get('/students/:id/payment-details', authMiddleware, tenantMiddleware, checkPermission('manage:students'), StudentController.getPaymentDetails);
 router.post('/students', authMiddleware, tenantMiddleware, checkPermission('manage:students'), validateRequest(studentSchema), StudentController.create);
 router.put('/students/:id', authMiddleware, tenantMiddleware, checkPermission('manage:students'), validateRequest(studentSchema), StudentController.update);
 router.delete('/students/:id', authMiddleware, tenantMiddleware, checkPermission('manage:students'), StudentController.delete);
+router.post('/students/bulk', authMiddleware, tenantMiddleware, checkPermission('manage:students'), StudentController.bulkCreate);
 
 // Student Documents
 router.post('/students/:id/documents', authMiddleware, tenantMiddleware, checkPermission('manage:students'), StudentController.addDocument);
