@@ -3,12 +3,16 @@ import { NotFoundError } from '../utils/errors';
 
 export class CourseService {
   // Course CRUD
-  static async listCourses(orgId: string, status?: string) {
+  static async listCourses(orgId: string, branchId?: string, status?: string) {
     const where: any = { organizationId: orgId, isActive: true };
+    if (branchId) where.branchId = branchId;
     if (status) where.status = status;
 
     return prisma.course.findMany({
       where,
+      include: {
+        branch: { select: { id: true, name: true } },
+      },
       orderBy: { name: 'asc' },
     });
   }
@@ -16,6 +20,9 @@ export class CourseService {
   static async getCourseById(orgId: string, id: string) {
     const course = await prisma.course.findFirst({
       where: { id, organizationId: orgId, isActive: true },
+      include: {
+        branch: { select: { id: true, name: true } },
+      },
     });
     if (!course) throw new NotFoundError('Course not found');
     return course;
@@ -25,6 +32,7 @@ export class CourseService {
     return prisma.course.create({
       data: {
         organizationId: orgId,
+        branchId: data.branchId,
         name: data.name,
         description: data.description,
         duration: data.duration,
@@ -43,6 +51,7 @@ export class CourseService {
     return prisma.course.update({
       where: { id },
       data: {
+        branchId: data.branchId,
         name: data.name,
         description: data.description,
         duration: data.duration,

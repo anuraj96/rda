@@ -64,6 +64,19 @@ export class FeeController {
     }
   }
 
+  static async revertPayment(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const orgId = req.orgId!;
+      const userId = req.user!.id;
+      const { paymentId } = req.params;
+
+      const result = await FinanceService.revertFeePayment(orgId, paymentId, userId);
+      return sendResponse(res, 200, 'Fee payment reverted successfully', result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getDefaulters(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const orgId = req.orgId!;

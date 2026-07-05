@@ -129,6 +129,7 @@ router.get('/fees/defaulters', authMiddleware, tenantMiddleware, checkPermission
 router.post('/fees/create', authMiddleware, tenantMiddleware, checkPermission('manage:fees'), validateRequest(feeCreateSchema), FeeController.create);
 router.post('/fees/collect', authMiddleware, tenantMiddleware, checkPermission('manage:fees'), validateRequest(feePaymentSchema), FeeController.collect);
 router.get('/fees/:id', authMiddleware, tenantMiddleware, checkPermission('manage:fees'), FeeController.getById);
+router.post('/fees/payments/:paymentId/revert', authMiddleware, tenantMiddleware, checkPermission('manage:fees'), FeeController.revertPayment);
 
 // Expenses Track
 router.get('/expenses', authMiddleware, tenantMiddleware, checkPermission('manage:expenses'), ExpenseController.list);
