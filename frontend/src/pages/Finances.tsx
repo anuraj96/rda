@@ -326,6 +326,7 @@ export const Finances: React.FC = () => {
   // Receipt modal state
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [selectedSalaryReceipt, setSelectedSalaryReceipt] = useState<any>(null);
+  const [reverting, setReverting] = useState(false);
 
   // Generate list of due months statically (e.g., last 12 months and next 6 months)
   const uniqueMonths = (() => {
@@ -592,6 +593,22 @@ export const Finances: React.FC = () => {
     html2pdf().set(opt).from(element).save();
   };
 
+  const handleRevertPayment = async (paymentId: string) => {
+    if (!window.confirm('Are you sure you want to revert this payment addition? This will soft-delete the payment receipt and adjust the fee billing status accordingly.')) {
+      return;
+    }
+    setReverting(true);
+    try {
+      await api.post(`/fees/payments/${paymentId}/revert`);
+      setSelectedReceipt(null);
+      fetchFinancials();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to revert payment');
+    } finally {
+      setReverting(false);
+    }
+  };
+
   // Filtered staff for salary tab
   const filteredStaff = staffList.filter(s =>
     !staffSearch ||
@@ -709,7 +726,7 @@ export const Finances: React.FC = () => {
                   onChange={(e) => { setSelectedMonth(e.target.value); setFeesPage(1); }}
                   className="w-full bg-secondary border border-border px-3 py-2 rounded-xl outline-none"
                 >
-                  <option value="">All Due Months</option>
+                  <option value="">All Months</option>
                   {uniqueMonths.map(m => (
                     <option key={m} value={m}>{formatMonthYear(m)}</option>
                   ))}
@@ -1372,27 +1389,38 @@ export const Finances: React.FC = () => {
               <p className="text-[9px] text-center text-muted-foreground italic pt-2">Thank you for your payment. This is an electronically generated receipt reference.</p>
             </div>
 
-            <div className="pt-2 flex gap-3">
-              <button
-                onClick={() => setSelectedReceipt(null)}
-                className="flex-1 bg-secondary border border-border py-2 px-3 rounded-xl font-bold cursor-pointer"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  const html = generateTuitionReceiptHtml(selectedReceipt.payment, selectedReceipt.fee);
-                  const studentName = selectedReceipt.fee?.student?.name || 'Student';
-                  const feePeriod = selectedReceipt.fee?.type === 'MONTHLY' && selectedReceipt.fee?.dueDate
-                    ? new Date(selectedReceipt.fee.dueDate).toLocaleDateString('default', { month: 'long', year: 'numeric' })
-                    : selectedReceipt.fee?.type || 'Payment';
-                  const fileName = `${studentName.replace(/\s+/g, '_')}-${feePeriod.replace(/\s+/g, '_')}-Payment.pdf`;
-                  downloadReceiptPDF(html, fileName);
-                }}
-                className="flex-1 bg-primary text-primary-foreground py-2 px-3 rounded-xl font-bold shadow-md cursor-pointer hover:bg-primary/95 transition-colors"
-              >
-                Download PDF
-              </button>
+            <div className="pt-2 flex flex-col gap-2">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setSelectedReceipt(null)}
+                  className="flex-1 bg-secondary border border-border py-2 px-3 rounded-xl font-bold cursor-pointer text-center"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    const html = generateTuitionReceiptHtml(selectedReceipt.payment, selectedReceipt.fee);
+                    const studentName = selectedReceipt.fee?.student?.name || 'Student';
+                    const feePeriod = selectedReceipt.fee?.type === 'MONTHLY' && selectedReceipt.fee?.dueDate
+                      ? new Date(selectedReceipt.fee.dueDate).toLocaleDateString('default', { month: 'long', year: 'numeric' })
+                      : selectedReceipt.fee?.type || 'Payment';
+                    const fileName = `${studentName.replace(/\s+/g, '_')}-${feePeriod.replace(/\s+/g, '_')}-Payment.pdf`;
+                    downloadReceiptPDF(html, fileName);
+                  }}
+                  className="flex-1 bg-primary text-primary-foreground py-2 px-3 rounded-xl font-bold shadow-md cursor-pointer hover:bg-primary/95 transition-colors text-center"
+                >
+                  Download PDF
+                </button>
+              </div>
+              {isSuperAdminOrAccountant && (
+                <button
+                  disabled={reverting}
+                  onClick={() => handleRevertPayment(selectedReceipt.payment.id)}
+                  className="w-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 font-bold py-2 px-3 rounded-xl border border-rose-500/20 cursor-pointer disabled:opacity-50 text-center transition-colors mt-1"
+                >
+                  {reverting ? 'Reverting...' : 'Revert & Delete Payment'}
+                </button>
+              )}
             </div>
           </div>
         </div>

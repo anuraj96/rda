@@ -181,6 +181,90 @@ export class FinanceService {
     });
   }
 
+  static async revertFeePayment(orgId: string, paymentId: string, userId: string) {
+    const payment = await prisma.feePayment.findFirst({
+      where: { id: paymentId, organizationId: orgId, isActive: true },
+      include: {
+        fee: {
+          include: {
+            payments: {
+              where: { isActive: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundError('Payment record not found or already reverted');
+    }
+
+    return prisma.$transaction(async (tx) => {
+      // 1. Mark the payment record as inactive (soft delete)
+      await tx.feePayment.update({
+        where: { id: paymentId },
+        data: {
+          isActive: false,
+          updatedBy: userId,
+        },
+      });
+
+      // 2. Mark the corresponding Income transaction as inactive (soft delete)
+      const income = await tx.income.findFirst({
+        where: { referenceId: paymentId, organizationId: orgId, isActive: true },
+      });
+      if (income) {
+        await tx.income.update({
+          where: { id: income.id },
+          data: {
+            isActive: false,
+            updatedBy: userId,
+          },
+        });
+      }
+
+      // 3. Recalculate remaining payments and update Fee status
+      const fee = payment.fee;
+      const remainingPayments = fee.payments.filter((p) => p.id !== paymentId);
+      const newTotalPaid = remainingPayments.reduce((sum, p) => sum + Number(p.amountPaid), 0);
+
+      let newStatus = 'PENDING';
+      if (newTotalPaid >= Number(fee.amount)) {
+        newStatus = 'PAID';
+      } else if (newTotalPaid > 0) {
+        newStatus = 'PARTIALLY_PAID';
+      }
+
+      await tx.fee.update({
+        where: { id: fee.id },
+        data: {
+          status: newStatus,
+          updatedBy: userId,
+        },
+      });
+
+      // 4. Create Audit Log
+      await tx.auditLog.create({
+        data: {
+          organizationId: orgId,
+          branchId: payment.branchId,
+          userId,
+          action: 'REVERT_FEE_PAYMENT',
+          entityName: 'FeePayment',
+          entityId: paymentId,
+          details: JSON.stringify({
+            receiptNumber: payment.receiptNumber,
+            amountPaid: payment.amountPaid,
+            feeId: fee.id,
+            newStatus,
+          }),
+        },
+      });
+
+      return { success: true, newStatus };
+    });
+  }
+
   static async getDefaulters(orgId: string, branchId?: string, query?: { page?: number; limit?: number }) {
     const today = new Date();
 
