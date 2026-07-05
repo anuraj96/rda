@@ -1213,7 +1213,11 @@ export const Students: React.FC = () => {
                   <label className="font-bold text-muted-foreground uppercase">Branch Location *</label>
                   <select
                     value={branchId}
-                    onChange={(e) => setBranchId(e.target.value)}
+                    onChange={(e) => {
+                      setBranchId(e.target.value);
+                      setCourseId('');
+                      setBatchId('');
+                    }}
                     disabled={user?.role !== 'SUPER_ADMIN'}
                     className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none disabled:opacity-75"
                   >
@@ -1231,11 +1235,14 @@ export const Students: React.FC = () => {
                       <label className="font-bold text-muted-foreground uppercase text-[9px]">Course Type</label>
                       <select
                         value={courseId}
-                        onChange={(e) => setCourseId(e.target.value)}
+                        onChange={(e) => {
+                          setCourseId(e.target.value);
+                          setBatchId('');
+                        }}
                         className="w-full bg-card border border-border px-3 py-1.5 rounded-lg outline-none"
                       >
                         <option value="">Unallocated</option>
-                        {courses.filter(c => c.status === 'ACTIVE').map(c => (
+                        {courses.filter(c => c.status === 'ACTIVE' && (!branchId || c.branchId === branchId)).map(c => (
                           <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                       </select>

@@ -816,7 +816,7 @@ export const Finances: React.FC = () => {
         {/* TAB 2: OVERDUE DEFAULTERS */}
         {activeTab === 'defaulters' && (
           <div className="space-y-4 text-xs">
-            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-300 p-4 rounded-2xl flex gap-3 items-start">
+            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600  p-4 rounded-2xl flex gap-3 items-start">
               <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
               <div>
                 <h4 className="font-bold text-sm">Outstanding Overdue Notices</h4>

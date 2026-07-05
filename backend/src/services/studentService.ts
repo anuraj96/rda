@@ -176,6 +176,12 @@ export class StudentService {
 
       // 2. Assign to Batch if batchId is provided
       if (data.batchId) {
+        const batch = await tx.batch.findFirst({
+          where: { id: data.batchId, organizationId: orgId, branchId: data.branchId, isActive: true },
+        });
+        if (!batch) {
+          throw new NotFoundError('Batch not found or does not belong to the selected branch');
+        }
         await tx.batchStudent.create({
           data: {
             batchId: data.batchId,
@@ -199,48 +205,49 @@ export class StudentService {
 
       if (courseIdToUse) {
         const course = await tx.course.findFirst({
-          where: { id: courseIdToUse, organizationId: orgId, isActive: true },
+          where: { id: courseIdToUse, organizationId: orgId, branchId: data.branchId, isActive: true },
         });
 
-        if (course) {
-          // A. Registration Fee invoice
-          if (course.registrationFee.greaterThan(0)) {
-            await tx.fee.create({
-              data: {
-                organizationId: orgId,
-                branchId: data.branchId,
-                studentId: student.id,
-                type: 'REGISTRATION',
-                amount: course.registrationFee,
-                dueDate: data.joiningDate || new Date(),
-                status: 'PENDING',
-                remarks: `Initial Registration Fee for ${course.name}`,
-                createdBy: userId,
-                updatedBy: userId,
-              },
-            });
-          }
+        if (!course) {
+          throw new NotFoundError('Course not found or does not belong to the selected branch');
+        }
+        // A. Registration Fee invoice
+        if (course.registrationFee.greaterThan(0)) {
+          await tx.fee.create({
+            data: {
+              organizationId: orgId,
+              branchId: data.branchId,
+              studentId: student.id,
+              type: 'REGISTRATION',
+              amount: course.registrationFee,
+              dueDate: data.joiningDate || new Date(),
+              status: 'PENDING',
+              remarks: `Initial Registration Fee for ${course.name}`,
+              createdBy: userId,
+              updatedBy: userId,
+            },
+          });
+        }
 
-          // B. First Month Fee invoice
-          if (course.monthlyFee.greaterThan(0)) {
-            const dueDate = new Date();
-            dueDate.setDate(dueDate.getDate() + 10); // due in 10 days
+        // B. First Month Fee invoice
+        if (course.monthlyFee.greaterThan(0)) {
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + 10); // due in 10 days
 
-            await tx.fee.create({
-              data: {
-                organizationId: orgId,
-                branchId: data.branchId,
-                studentId: student.id,
-                type: 'MONTHLY',
-                amount: course.monthlyFee,
-                dueDate,
-                status: 'PENDING',
-                remarks: `First month tuition fee for ${course.name}`,
-                createdBy: userId,
-                updatedBy: userId,
-              },
-            });
-          }
+          await tx.fee.create({
+            data: {
+              organizationId: orgId,
+              branchId: data.branchId,
+              studentId: student.id,
+              type: 'MONTHLY',
+              amount: course.monthlyFee,
+              dueDate,
+              status: 'PENDING',
+              remarks: `First month tuition fee for ${course.name}`,
+              createdBy: userId,
+              updatedBy: userId,
+            },
+          });
         }
       }
 

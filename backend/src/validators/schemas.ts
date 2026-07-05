@@ -59,6 +59,7 @@ export const courseSchema = z.object({
   duration: z.number().int().positive('Duration in weeks must be positive'),
   monthlyFee: z.number().nonnegative('Monthly fee cannot be negative'),
   registrationFee: z.number().nonnegative('Registration fee cannot be negative'),
+  branchId: z.string().uuid('Invalid Branch ID'),
   status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE'),
 });
 

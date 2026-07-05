@@ -37,6 +37,7 @@ export const CoursesAndBatches: React.FC = () => {
   const [cDuration, setCDuration] = useState(12);
   const [cMonthlyFee, setCMonthlyFee] = useState('');
   const [cRegistrationFee, setCRegistrationFee] = useState('');
+  const [cBranchId, setCBranchId] = useState('');
   const [cStatus, setCStatus] = useState('ACTIVE');
   const [editingCourse, setEditingCourse] = useState<any>(null);
 
@@ -115,7 +116,7 @@ export const CoursesAndBatches: React.FC = () => {
   // Course Submit
   const handleCourseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cName || !cMonthlyFee || !cRegistrationFee) {
+    if (!cName || !cMonthlyFee || !cRegistrationFee || !cBranchId) {
       setFormError('Please fill out all required fields');
       return;
     }
@@ -127,6 +128,7 @@ export const CoursesAndBatches: React.FC = () => {
       duration: Number(cDuration),
       monthlyFee: Number(cMonthlyFee),
       registrationFee: Number(cRegistrationFee),
+      branchId: cBranchId,
       status: cStatus
     };
 
@@ -313,6 +315,7 @@ export const CoursesAndBatches: React.FC = () => {
     setCDuration(12);
     setCMonthlyFee('');
     setCRegistrationFee('');
+    setCBranchId(user?.branchId || branches[0]?.id || '');
     setCStatus('ACTIVE');
     setFormError(null);
     setIsCourseFormOpen(true);
@@ -325,6 +328,7 @@ export const CoursesAndBatches: React.FC = () => {
     setCDuration(c.duration);
     setCMonthlyFee(Number(c.monthlyFee).toString());
     setCRegistrationFee(Number(c.registrationFee).toString());
+    setCBranchId(c.branchId || '');
     setCStatus(c.status);
     setFormError(null);
     setIsCourseFormOpen(true);
@@ -655,88 +659,115 @@ export const CoursesAndBatches: React.FC = () => {
 
           {/* Workspace Content Display */}
           {activeWorkspace === 'courses' ? (
+            loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4 animate-pulse h-48" />
+                ))}
+              </div>
+            ) : courses.length === 0 ? (
+              <div className="bg-card border border-border p-12 rounded-2xl text-center text-muted-foreground w-full col-span-full">
+                No courses available.
+              </div>
+            ) : (
+              /* COURSES CATALOG LIST */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {courses.map(c => (
+                  <div key={c.id} className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:border-primary/30 transition-all flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-bold text-base">{c.name}</h4>
+                          {c.branch && (
+                            <span className="text-[10px] text-muted-foreground block mt-0.5">
+                              {c.branch.name} Branch
+                            </span>
+                          )}
+                        </div>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${c.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
+                          }`}>
+                          {c.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed min-h-12">{c.description || 'No description provided.'}</p>
 
-            /* COURSES CATALOG LIST */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {courses.map(c => (
-                <div key={c.id} className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:border-primary/30 transition-all flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-start">
-                      <h4 className="font-bold text-base">{c.name}</h4>
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${c.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
-                        }`}>
-                        {c.status}
-                      </span>
+                      <div className="pt-2 flex justify-between text-xs font-semibold text-foreground">
+                        <span>Monthly Fee: ₹{Number(c.monthlyFee).toLocaleString()}</span>
+                        <span>Reg Fee: ₹{Number(c.registrationFee).toLocaleString()}</span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground block">Duration: {c.duration} Weeks (Course outline)</span>
                     </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed min-h-12">{c.description || 'No description provided.'}</p>
 
-                    <div className="pt-2 flex justify-between text-xs font-semibold text-foreground">
-                      <span>Monthly Fee: ₹{Number(c.monthlyFee).toLocaleString()}</span>
-                      <span>Reg Fee: ₹{Number(c.registrationFee).toLocaleString()}</span>
+                    <div className="flex gap-2 mt-5 pt-3 border-t border-border">
+                      <button
+                        onClick={() => openCourseEdit(c)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-secondary hover:bg-primary/10 hover:text-primary rounded-lg transition-all"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                        <span>Update</span>
+                      </button>
                     </div>
-                    <span className="text-[10px] text-muted-foreground block">Duration: {c.duration} Weeks (Course outline)</span>
                   </div>
-
-                  <div className="flex gap-2 mt-5 pt-3 border-t border-border">
-                    <button
-                      onClick={() => openCourseEdit(c)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-secondary hover:bg-primary/10 hover:text-primary rounded-lg transition-all"
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                      <span>Update</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
+                ))}
+              </div>
+            )
           ) : (
-
-            /* BATCHES LIST */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {batches.map(b => (
-                <div key={b.id} className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:border-primary/30 transition-all flex flex-col justify-between">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-bold text-base leading-tight">{b.name}</h4>
-                        <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wide mt-1 block">{b.course?.name}</span>
+            loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4 animate-pulse h-48" />
+                ))}
+              </div>
+            ) : batches.length === 0 ? (
+              <div className="bg-card border border-border p-12 rounded-2xl text-center text-muted-foreground w-full col-span-full">
+                No batches available.
+              </div>
+            ) : (
+              /* BATCHES LIST */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {batches.map(b => (
+                  <div key={b.id} className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:border-primary/30 transition-all flex flex-col justify-between">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-bold text-base leading-tight">{b.name}</h4>
+                          <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wide mt-1 block">{b.course?.name}</span>
+                        </div>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${b.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
+                          }`}>
+                          {b.status}
+                        </span>
                       </div>
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${b.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
-                        }`}>
-                        {b.status}
-                      </span>
+
+                      <div className="space-y-1.5 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span>Schedule: {b.schedule}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Users className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span>Enrolled: {b._count?.students || 0} / {b.capacity} Pupils</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span>Teacher: {b.instructor?.name || 'Unassigned'}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="space-y-1.5 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span>Schedule: {b.schedule}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Users className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span>Enrolled: {b._count?.students || 0} / {b.capacity} Pupils</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span>Teacher: {b.instructor?.name || 'Unassigned'}</span>
-                      </div>
+                    <div className="flex gap-2 mt-5 pt-3 border-t border-border">
+                      <button
+                        onClick={() => selectBatch(b.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-secondary hover:bg-primary/10 hover:text-primary rounded-lg transition-all"
+                      >
+                        <BookmarkCheck className="h-4 w-4" />
+                        <span>Manage Workspace</span>
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex gap-2 mt-5 pt-3 border-t border-border">
-                    <button
-                      onClick={() => selectBatch(b.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-secondary hover:bg-primary/10 hover:text-primary rounded-lg transition-all"
-                    >
-                      <BookmarkCheck className="h-4 w-4" />
-                      <span>Manage Workspace</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
+                ))}
+              </div>
+            )
           )}
         </div>
       )}
@@ -829,6 +860,20 @@ export const CoursesAndBatches: React.FC = () => {
                     </select>
                   </div>
                 </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-muted-foreground uppercase">Branch Location *</label>
+                  <select
+                    value={cBranchId}
+                    onChange={(e) => setCBranchId(e.target.value)}
+                    className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none font-semibold text-foreground"
+                  >
+                    <option value="">Select Branch</option>
+                    {branches.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
               </form>
             </div>
 
@@ -868,6 +913,21 @@ export const CoursesAndBatches: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
+                    <label className="font-bold text-muted-foreground uppercase">Branch Location *</label>
+                    <select
+                      value={bBranchId}
+                      onChange={(e) => {
+                        setBBranchId(e.target.value);
+                        setBCourseId('');
+                      }}
+                      className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none font-semibold text-foreground"
+                    >
+                      <option value="">Select Location</option>
+                      {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
                     <label className="font-bold text-muted-foreground uppercase">Course Type *</label>
                     <select
                       value={bCourseId}
@@ -875,10 +935,14 @@ export const CoursesAndBatches: React.FC = () => {
                       className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none"
                     >
                       <option value="">Select Course</option>
-                      {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {courses.filter(c => c.status === 'ACTIVE' && (!bBranchId || c.branchId === bBranchId)).map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
                     </select>
                   </div>
+                </div>
 
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="font-bold text-muted-foreground uppercase">Assign Instructor *</label>
                     <select
@@ -889,6 +953,16 @@ export const CoursesAndBatches: React.FC = () => {
                       <option value="">Select Instructor</option>
                       {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
                     </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-muted-foreground uppercase">Max Capacity *</label>
+                    <input
+                      type="number"
+                      value={bCapacity}
+                      onChange={(e) => setBCapacity(Number(e.target.value))}
+                      className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none"
+                    />
                   </div>
                 </div>
 
@@ -901,30 +975,6 @@ export const CoursesAndBatches: React.FC = () => {
                     placeholder="e.g. Mon, Wed, Fri 5:00 PM - 6:30 PM"
                     className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none"
                   />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="font-bold text-muted-foreground uppercase">Max Capacity *</label>
-                    <input
-                      type="number"
-                      value={bCapacity}
-                      onChange={(e) => setBCapacity(Number(e.target.value))}
-                      className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold text-muted-foreground uppercase">Branch Location *</label>
-                    <select
-                      value={bBranchId}
-                      onChange={(e) => setBBranchId(e.target.value)}
-                      className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none font-semibold text-foreground"
-                    >
-                      <option value="">Select Location</option>
-                      {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

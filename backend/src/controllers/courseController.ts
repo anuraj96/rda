@@ -8,8 +8,9 @@ export class CourseController {
     try {
       const orgId = req.orgId!;
       const status = req.query.status as string;
+      const branchId = req.query.branchId as string || req.branchId;
 
-      const courses = await CourseService.listCourses(orgId, status);
+      const courses = await CourseService.listCourses(orgId, branchId, status);
       return sendResponse(res, 200, 'Courses retrieved successfully', courses);
     } catch (error) {
       next(error);
