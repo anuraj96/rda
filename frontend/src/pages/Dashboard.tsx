@@ -10,7 +10,8 @@ import {
   Percent,
   Clock,
   ArrowUpRight,
-  TrendingDown
+  TrendingDown,
+  Building
 } from 'lucide-react';
 import {
   AreaChart,
@@ -79,6 +80,53 @@ export const Dashboard: React.FC = () => {
   // Curated color themes for Pie
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899'];
 
+  if (user?.role === 'PRODUCT_OWNER') {
+    return (
+      <div className="space-y-6">
+        {/* Welcome Message */}
+        <div>
+          <h2 className="text-2xl font-extrabold tracking-tight">Dashboard Overview</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Welcome back, <span className="font-semibold text-foreground">{user?.name}</span>! Here is a summary of ARSuite performance.
+          </p>
+        </div>
+
+        {/* KPI Cards Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl">
+          
+          {/* Total Client Organizations */}
+          <div className="bg-card border border-border rounded-2xl p-5 shadow-sm relative overflow-hidden group">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Client Organizations</span>
+                <h3 className="text-2xl font-black">{stats?.totalOrganizations}</h3>
+              </div>
+              <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
+                <Building className="h-5 w-5" />
+              </div>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-3 uppercase font-semibold">Active school clients onboarded</div>
+          </div>
+
+          {/* Total Branches */}
+          <div className="bg-card border border-border rounded-2xl p-5 shadow-sm relative overflow-hidden group">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Branches</span>
+                <h3 className="text-2xl font-black">{stats?.totalBranches}</h3>
+              </div>
+              <div className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-500">
+                <GitBranch className="h-5 w-5" />
+              </div>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-3 uppercase font-semibold">Branches across all clients</div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       
@@ -86,7 +134,7 @@ export const Dashboard: React.FC = () => {
       <div>
         <h2 className="text-2xl font-extrabold tracking-tight">Dashboard Overview</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Welcome back, <span className="font-semibold text-foreground">{user?.name}</span>! Here is a summary of Rudreshwar Dance Academy performance.
+          Welcome back, <span className="font-semibold text-foreground">{user?.name}</span>! Here is a summary of {user?.role === 'PRODUCT_OWNER' ? 'ARSuite' : (user?.organizationName || 'your organization')}'s performance.
         </p>
       </div>
 
@@ -177,7 +225,7 @@ export const Dashboard: React.FC = () => {
         <div className="border-l border-border">
           <span className="text-[10px] text-muted-foreground font-bold uppercase">Branch isolation</span>
           <p className="text-sm font-bold text-foreground mt-1 truncate max-w-full">
-            {user?.role === 'SUPER_ADMIN' ? 'All (Super View)' : user?.branchName}
+            {(user?.role === 'SUPER_ADMIN' || user?.role === 'PRODUCT_OWNER') ? 'All (Super View)' : user?.branchName}
           </p>
         </div>
       </div>
@@ -268,7 +316,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* 4. Branch Comparison (Bar) */}
-        {user?.role === 'SUPER_ADMIN' && (
+        {(user?.role === 'SUPER_ADMIN' || user?.role === 'PRODUCT_OWNER') && (
           <div className="lg:col-span-6 bg-card border border-border rounded-2xl p-5 shadow-sm">
             <h4 className="font-bold text-sm mb-1">Branch-wise Performance Comparison</h4>
             <span className="text-[11px] text-muted-foreground mb-6 block">Total revenue vs student counts at each location</span>

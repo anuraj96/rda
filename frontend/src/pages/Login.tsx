@@ -31,17 +31,7 @@ export const Login: React.FC = () => {
     }
   };
 
-  const demoAccounts = [
-    { label: 'Super Admin', email: 'admin@rda.com', role: 'Super Admin' },
-  ];
 
-  const handleQuickLogin = async (demoEmail: string) => {
-    setLocalError(null);
-    try {
-      await login(demoEmail, 'password123');
-      navigate('/dashboard');
-    } catch { }
-  };
 
   return (
     // Dark page backdrop — derived from project primary hue (169°) at very low lightness
@@ -78,9 +68,9 @@ export const Login: React.FC = () => {
                 style={{ border: '1px solid hsl(169, 39%, 30%, 0.5)', background: 'hsl(169, 39%, 25%, 0.08)' }} />
               {/* Logo */}
               <img
-                src="/dlogo.png"
-                alt="Rudreshwar Dance Academy Logo"
-                className="relative h-26 w-26 rounded-[20px] object-contain shadow-xl"
+                src="/logo.png"
+                alt="ARSuite Logo"
+                className="relative h-24 w-24 rounded-[20px] object-contain shadow-xl"
                 style={{
                   border: '1px solid hsl(169, 39%, 25%, 0.3)',
                   background: 'hsl(169, 30%, 12%)',
@@ -89,10 +79,10 @@ export const Login: React.FC = () => {
               />
             </div>
 
-            {/* Academy name + badge */}
+            {/* Platform name + badge */}
             <div className="flex flex-col gap-1.5">
               <h1 className="text-xl font-semibold leading-tight tracking-tight" style={{ color: 'hsl(150, 17%, 93%)' }}>
-                Rudreshwar Dance Academy
+                ARSuite
               </h1>
               <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest rounded-md px-2.5 py-1 w-fit"
                 style={{
@@ -114,44 +104,11 @@ export const Login: React.FC = () => {
               for every branch.
             </h2>
             <p className="text-sm leading-relaxed" style={{ color: 'hsl(169, 15%, 55%)' }}>
-              Monitor students, batch schedules, attendance, automated billing, expense ledgers, and concert budgets across all Kerala branches in real time.
+              Monitor students, batch schedules, attendance, automated billing, expense ledgers, and budgets across branches in real time.
             </p>
           </div>
 
-          {/* Demo account selector */}
-          <div className="rounded-2xl p-4 space-y-2.5"
-            style={{ background: 'hsl(169, 20%, 11%)', border: '1px solid hsl(169, 20%, 16%)' }}>
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="h-3 w-3" style={{ color: 'hsl(169, 39%, 50%)' }} />
-              <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'hsl(169, 39%, 50%)' }}>
-                Quick demo access
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {demoAccounts.map((acc) => (
-                <button
-                  key={acc.email}
-                  onClick={() => handleQuickLogin(acc.email)}
-                  className="flex flex-col text-left p-2.5 rounded-xl transition-all duration-150"
-                  style={{
-                    background: 'hsl(169, 20%, 13%)',
-                    border: '1px solid hsl(169, 20%, 18%)',
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLButtonElement).style.background = 'hsl(169, 39%, 18%)';
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'hsl(169, 39%, 30%)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLButtonElement).style.background = 'hsl(169, 20%, 13%)';
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'hsl(169, 20%, 18%)';
-                  }}
-                >
-                  <span className="text-xs font-semibold" style={{ color: 'hsl(150, 17%, 88%)' }}>{acc.label}</span>
-                  <span className="text-[11px] truncate mt-0.5" style={{ color: 'hsl(169, 15%, 45%)' }}>{acc.email}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+
         </div>
 
         {/* ─── Right: Login Form ─── */}
@@ -259,12 +216,6 @@ export const Login: React.FC = () => {
             </button>
           </form>
 
-          {/* Footer note */}
-          <div className="pt-1" style={{ borderTop: '1px solid hsl(169, 20%, 15%)' }}>
-            <p className="text-center text-[11px]" style={{ color: 'hsl(169, 15%, 35%)' }}>
-              Locked by RBAC security · Sessions auto-refresh every 60 min
-            </p>
-          </div>
         </div>
 
       </div>

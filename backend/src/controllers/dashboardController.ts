@@ -7,9 +7,10 @@ export class DashboardController {
   static async getStats(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const orgId = req.orgId!;
-      const branchId = req.branchId; // from tenantMiddleware
+      const branchId = req.branchId;
+      const userRole = req.user!.role;
 
-      const stats = await DashboardService.getStats(orgId, branchId);
+      const stats = await DashboardService.getStats(orgId, branchId, userRole);
       return sendResponse(res, 200, 'Dashboard statistics fetched successfully', stats);
     } catch (error) {
       next(error);
@@ -20,8 +21,9 @@ export class DashboardController {
     try {
       const orgId = req.orgId!;
       const branchId = req.branchId;
+      const userRole = req.user!.role;
 
-      const charts = await DashboardService.getCharts(orgId, branchId);
+      const charts = await DashboardService.getCharts(orgId, branchId, userRole);
       return sendResponse(res, 200, 'Dashboard analytics fetched successfully', charts);
     } catch (error) {
       next(error);

@@ -9,8 +9,8 @@ export const checkPermission = (requiredPermission: string) => {
         throw new UnauthorizedError('User authentication context is missing');
       }
 
-      // Super admin can do everything
-      if (req.user.role === 'SUPER_ADMIN') {
+      // Product Owner and Super Admin can do everything
+      if (req.user.role === 'PRODUCT_OWNER' || req.user.role === 'SUPER_ADMIN') {
         return next();
       }
 

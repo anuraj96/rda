@@ -135,7 +135,6 @@ const generateTuitionReceiptHtml = (payment: any, fee: any) => {
     </div>
 
     <div class="footer">
-      br/>
       This is an electronically generated receipt and does not require a physical signature.
     </div>
   </div>

@@ -24,8 +24,12 @@ export const authMiddleware = async (
       const testEmail = req.headers['x-test-email'] as string;
       if (testEmail) {
         const user = await prisma.user.findFirst({
-          where: { email: testEmail, isActive: true },
+          where: { 
+            email: testEmail, 
+            isActive: true,
+          },
           include: {
+            organization: true,
             role: {
               include: {
                 permissions: {
@@ -39,6 +43,9 @@ export const authMiddleware = async (
         });
 
         if (user) {
+          if (user.role.name !== 'PRODUCT_OWNER' && !user.organization?.isActive) {
+            throw new UnauthorizedError('Your organization account has been deactivated');
+          }
           const permissions = user.role.permissions.map((rp) => rp.permission.name);
           req.user = {
             id: user.id,
@@ -81,6 +88,7 @@ export const authMiddleware = async (
         isActive: true,
       },
       include: {
+        organization: true,
         role: {
           include: {
             permissions: {
@@ -95,6 +103,10 @@ export const authMiddleware = async (
 
     if (!user) {
       throw new UnauthorizedError('User account not found or is deactivated');
+    }
+
+    if (user.role.name !== 'PRODUCT_OWNER' && !user.organization?.isActive) {
+      throw new UnauthorizedError('Your organization account has been deactivated');
     }
 
     const permissions = user.role.permissions.map((rp) => rp.permission.name);

@@ -19,6 +19,9 @@ export class AuthService {
           },
         },
         branch: true,
+        organization: {
+          select: { name: true }
+        }
       },
     });
 
@@ -69,6 +72,7 @@ export class AuthService {
         role: user.role.name,
         permissions,
         organizationId: user.organizationId,
+        organizationName: user.organization?.name || null,
         branchId: user.branchId,
         branchName: user.branch?.name || null,
       },
@@ -91,6 +95,9 @@ export class AuthService {
         branch: {
           select: { id: true, name: true },
         },
+        organization: {
+          select: { name: true }
+        }
       },
     });
 
@@ -107,6 +114,7 @@ export class AuthService {
       role: user.role.name,
       permissions,
       organizationId: user.organizationId,
+      organizationName: user.organization?.name || null,
       branchId: user.branchId,
       branchName: user.branch?.name || null,
     };
