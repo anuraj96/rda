@@ -15,6 +15,7 @@ import { Events } from './pages/Events';
 import { Reports } from './pages/Reports';
 import { AuditLogs } from './pages/AuditLogs';
 import { BulkImportStudents } from './pages/BulkImportStudents';
+import { Clients } from './pages/Clients';
 
 // Protected Route wrapper component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -55,6 +56,14 @@ export const App: React.FC = () => {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/clients"
+          element={
+            <ProtectedRoute>
+              <Clients />
             </ProtectedRoute>
           }
         />

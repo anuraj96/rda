@@ -93,8 +93,9 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   // Nav menu links based on RBAC permissions
   const navItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard', permission: 'read:dashboard' },
+    { label: 'Clients', icon: Users, path: '/clients', permission: 'read:dashboard', productOwnerOnly: true },
     { label: 'Branches', icon: GitBranch, path: '/branches', permission: 'read:branch', superAdminOnly: true },
-    { label: 'Staff Directory', icon: Users, path: '/staff', permission: 'manage:staff' },
+    { label: 'Staff Directory', icon: Users, path: '/staff', permission: 'manage:staff', superAdminOnly: true },
     { label: 'Student Admissions', icon: GraduationCap, path: '/students', permission: 'manage:students' },
     { label: 'Courses & Catalog', icon: BookOpen, path: '/courses', permission: 'manage:courses' },
     { label: 'Batches & Attendance', icon: CalendarCheck, path: '/batches', permission: 'manage:attendance' },
@@ -106,6 +107,13 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   ];
 
   const filteredNavItems = navItems.filter(item => {
+    // Product Owner ONLY gets Dashboard and Clients
+    if (user?.role === 'PRODUCT_OWNER') {
+      return item.path === '/dashboard' || item.path === '/clients';
+    }
+    // Don't show product owner only items to others
+    if (item.productOwnerOnly) return false;
+
     if (item.superAdminOnly && user?.role !== 'SUPER_ADMIN') return false;
     return hasPermission(item.permission);
   });
@@ -119,8 +127,10 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-card">
         {/* Brand */}
         <div className="h-16 shrink-0 flex items-center px-6 border-b border-border gap-2">
-          <div>
-            <h1 className="font-bold text-lg leading-tight tracking-tight text-center">Rudreshwar Dance Academy</h1>
+          <div className="min-w-0 flex-1">
+            <h1 className="font-bold text-sm tracking-tight text-center truncate">
+              {user?.role === 'PRODUCT_OWNER' ? 'ARSuite' : (user?.organizationName || 'ARSuite')}
+            </h1>
           </div>
         </div>
 
@@ -203,7 +213,7 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                   ))}
                 </select>
               </div>
-            ) : (
+            ) : user?.role === 'PRODUCT_OWNER' ? null : (
               <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-xl text-xs font-semibold">
                 <GitBranch className="h-3.5 w-3.5 text-primary" />
                 <span>{user?.branchName || 'No Branch'}</span>
@@ -293,8 +303,12 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
             </button>
 
             <div className="h-10 flex items-center gap-2 mb-8 mt-2">
-              <div className="h-8 w-8 bg-primary rounded-lg text-primary-foreground font-black flex items-center justify-center">R</div>
-              <span className="font-bold text-md">Rudreshwar Dance</span>
+              <div className="h-8 w-8 bg-primary rounded-lg text-primary-foreground font-black flex items-center justify-center">
+                {user?.role === 'PRODUCT_OWNER' ? 'A' : (user?.organizationName || 'A').charAt(0)}
+              </div>
+              <span className="font-bold text-md truncate max-w-[160px]">
+                {user?.role === 'PRODUCT_OWNER' ? 'ARSuite' : (user?.organizationName || 'ARSuite Workspace')}
+              </span>
             </div>
 
             <nav className="flex-1 space-y-1.5">

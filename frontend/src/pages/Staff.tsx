@@ -148,6 +148,16 @@ export const Staff: React.FC = () => {
     }
   };
 
+  if (user?.role !== 'SUPER_ADMIN') {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+        <Shield className="h-12 w-12 text-yellow-500 animate-pulse" />
+        <h3 className="text-xl font-bold">Access Denied</h3>
+        <p className="text-muted-foreground max-w-sm">Only organization super administrators can view or manage the staff directory.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       

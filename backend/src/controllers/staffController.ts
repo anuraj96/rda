@@ -36,7 +36,7 @@ export class StaffController {
       const orgId = req.orgId!;
       const userId = req.user!.id;
 
-      const staff = await StaffService.create(orgId, req.body, userId);
+      const staff = await StaffService.create(orgId, req.body, userId, req.user!.role);
       return sendResponse(res, 201, 'Staff onboarded successfully', staff);
     } catch (error) {
       next(error);
@@ -49,7 +49,7 @@ export class StaffController {
       const { id } = req.params;
       const userId = req.user!.id;
 
-      const staff = await StaffService.update(orgId, id, req.body, userId);
+      const staff = await StaffService.update(orgId, id, req.body, userId, req.user!.role);
       return sendResponse(res, 200, 'Staff profile updated successfully', staff);
     } catch (error) {
       next(error);
@@ -71,7 +71,7 @@ export class StaffController {
 
   static async listRoles(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const roles = await StaffService.listRoles();
+      const roles = await StaffService.listRoles(req.user!.role);
       return sendResponse(res, 200, 'Roles retrieved successfully', roles);
     } catch (error) {
       next(error);

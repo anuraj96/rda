@@ -3,7 +3,7 @@ import { Router } from 'express';
 // Middlewares
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { tenantMiddleware } from '../middlewares/tenantMiddleware';
-import { checkPermission } from '../middlewares/rbacMiddleware';
+import { checkPermission, requireRole } from '../middlewares/rbacMiddleware';
 import { validateRequest } from '../middlewares/validate';
 
 // Validators
@@ -35,6 +35,7 @@ import { EventController } from '../controllers/eventController';
 import { DashboardController } from '../controllers/dashboardController';
 import { NotificationController } from '../controllers/notificationController';
 import { AuditController } from '../controllers/auditController';
+import { ClientController } from '../controllers/clientController';
 
 const router = Router();
 
@@ -166,5 +167,13 @@ router.put('/notifications/read-all', authMiddleware, NotificationController.mar
 // 12. AUDIT LOGS MODULE
 // ==========================================
 router.get('/audit', authMiddleware, tenantMiddleware, checkPermission('read:dashboard'), AuditController.list);
+
+// ==========================================
+// 13. CLIENT (ORGANIZATION) MANAGEMENT (Product Owner only)
+// ==========================================
+router.get('/clients', authMiddleware, requireRole(['PRODUCT_OWNER']), ClientController.list);
+router.post('/clients', authMiddleware, requireRole(['PRODUCT_OWNER']), ClientController.create);
+router.delete('/clients/:id', authMiddleware, requireRole(['PRODUCT_OWNER']), ClientController.delete);
+router.post('/clients/:id/enable', authMiddleware, requireRole(['PRODUCT_OWNER']), ClientController.enable);
 
 export default router;

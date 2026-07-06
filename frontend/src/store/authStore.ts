@@ -8,6 +8,7 @@ export interface User {
   role: string;
   permissions: string[];
   organizationId: string;
+  organizationName: string | null;
   branchId: string | null;
   branchName: string | null;
 }
@@ -44,9 +45,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.setItem('rda_token', token);
       localStorage.setItem('rda_user', JSON.stringify(user));
       
-      // Default active branch is 'all' for Super Admin, or user's assigned branch for others
+      // Default active branch is 'all' for Super Admin or Product Owner, or user's assigned branch for others
       let activeBranchId: string | null = null;
-      if (user.role === 'SUPER_ADMIN') {
+      if (user.role === 'SUPER_ADMIN' || user.role === 'PRODUCT_OWNER') {
         localStorage.setItem('rda_active_branch_id', 'all');
       } else {
         activeBranchId = user.branchId;
@@ -100,7 +101,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } else if (activeBranchId) {
           resolvedBranchId = activeBranchId;
         } else {
-          resolvedBranchId = user.role === 'SUPER_ADMIN' ? null : user.branchId;
+          resolvedBranchId = (user.role === 'SUPER_ADMIN' || user.role === 'PRODUCT_OWNER') ? null : user.branchId;
         }
 
         set({
@@ -131,7 +132,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   hasPermission: (permission: string) => {
     const { user } = get();
     if (!user) return false;
-    if (user.role === 'SUPER_ADMIN') return true;
+    if (user.role === 'SUPER_ADMIN' || user.role === 'PRODUCT_OWNER') return true;
     return user.permissions.includes(permission);
   },
 }));

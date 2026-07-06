@@ -1,7 +1,47 @@
 import prisma from '../prisma/client';
 
 export class DashboardService {
-  static async getStats(orgId: string, branchId?: string) {
+  static async getStats(orgId: string, branchId?: string, userRole?: string) {
+    if (userRole === 'PRODUCT_OWNER') {
+      const totalOrganizations = await prisma.organization.count({ where: { isActive: true } });
+      const totalBranches = await prisma.branch.count({ where: { isActive: true } });
+      const totalStudents = await prisma.student.count({ where: { isActive: true } });
+      const totalStaff = await prisma.user.count({ where: { isActive: true } });
+      // Monthly Finance Calculations (current month)
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      // Monthly Revenue (sum of income globally)
+      const monthlyRevenueRaw = await prisma.income.aggregate({
+        where: { isActive: true, date: { gte: startOfMonth, lte: endOfMonth } },
+        _sum: { amount: true },
+      });
+      const monthlyRevenue = Number(monthlyRevenueRaw._sum.amount || 0);
+
+      // Monthly Expenses (sum of expenses globally)
+      const monthlyExpensesRaw = await prisma.expense.aggregate({
+        where: { isActive: true, date: { gte: startOfMonth, lte: endOfMonth } },
+        _sum: { amount: true },
+      });
+      const monthlyExpenses = Number(monthlyExpensesRaw._sum.amount || 0);
+      const netProfit = monthlyRevenue - monthlyExpenses;
+
+      return {
+        isProductOwner: true,
+        totalOrganizations,
+        totalBranches,
+        totalStudents,
+        totalStaff,
+        monthlyRevenue,
+        monthlyExpenses,
+        netProfit,
+        pendingFees: 0,
+        attendanceRate: 100,
+        newAdmissions: 0,
+      };
+    }
+
     const filter: any = { organizationId: orgId, isActive: true };
     if (branchId) {
       filter.branchId = branchId;
@@ -117,7 +157,69 @@ export class DashboardService {
     };
   }
 
-  static async getCharts(orgId: string, branchId?: string) {
+  static async getCharts(orgId: string, branchId?: string, userRole?: string) {
+    if (userRole === 'PRODUCT_OWNER') {
+      // 1. Monthly Revenue vs Expense Trend (last 6 months globally)
+      const revenueTrend = [];
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const now = new Date();
+
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const start = new Date(d.getFullYear(), d.getMonth(), 1);
+        const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        const label = `${months[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+
+        const rev = await prisma.income.aggregate({
+          where: { isActive: true, date: { gte: start, lte: end } },
+          _sum: { amount: true },
+        });
+
+        const exp = await prisma.expense.aggregate({
+          where: { isActive: true, date: { gte: start, lte: end } },
+          _sum: { amount: true },
+        });
+
+        revenueTrend.push({
+          month: label,
+          revenue: Number(rev._sum.amount || 0),
+          expense: Number(exp._sum.amount || 0),
+        });
+      }
+
+      // 2. Organization Comparison (Revenue, Students)
+      const organizations = await prisma.organization.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true },
+      });
+
+      const branchComparison = []; // Map to branchComparison so frontend reuse works
+      for (const org of organizations) {
+        const studentCount = await prisma.student.count({
+          where: { organizationId: org.id, isActive: true },
+        });
+
+        const rev = await prisma.income.aggregate({
+          where: { organizationId: org.id, isActive: true },
+          _sum: { amount: true },
+        });
+
+        branchComparison.push({
+          branchName: org.name,
+          students: studentCount,
+          revenue: Number(rev._sum.amount || 0),
+        });
+      }
+
+      return {
+        isProductOwner: true,
+        revenueTrend,
+        branchComparison,
+        studentGrowth: [],
+        feeCollectionAnalytics: [],
+      };
+    }
+
     const filter: any = { organizationId: orgId, isActive: true };
     if (branchId) {
       filter.branchId = branchId;

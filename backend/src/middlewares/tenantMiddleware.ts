@@ -16,8 +16,8 @@ export const tenantMiddleware = (
     req.orgId = req.user.organizationId;
 
     // Determine branch isolation
-    if (req.user.role === 'SUPER_ADMIN') {
-      // Super Admin can view/modify all branches or narrow down to a specific branch via header or query param
+    if (req.user.role === 'PRODUCT_OWNER' || req.user.role === 'SUPER_ADMIN') {
+      // Product Owner and Super Admin can view/modify all branches or narrow down to a specific branch via header or query param
       const headerBranchId = req.headers['x-branch-id'] as string;
       const queryBranchId = req.query.branchId as string;
       const targetBranchId = headerBranchId || queryBranchId;

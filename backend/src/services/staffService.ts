@@ -1,5 +1,5 @@
 import prisma from '../prisma/client';
-import { NotFoundError, ConflictError } from '../utils/errors';
+import { NotFoundError, ConflictError, ForbiddenError } from '../utils/errors';
 
 export class StaffService {
   static async list(
@@ -68,7 +68,23 @@ export class StaffService {
     return staff;
   }
 
-  static async create(orgId: string, data: any, userId: string) {
+  static async create(orgId: string, data: any, userId: string, creatorRole: string) {
+    // Verify role assignment permissions
+    if (data.roleId) {
+      const targetRole = await prisma.role.findUnique({
+        where: { id: data.roleId },
+      });
+      if (!targetRole) {
+        throw new NotFoundError('Target role not found');
+      }
+      if (
+        (targetRole.name === 'SUPER_ADMIN' || targetRole.name === 'PRODUCT_OWNER') &&
+        creatorRole !== 'PRODUCT_OWNER'
+      ) {
+        throw new ForbiddenError('Only a Product Owner can assign Super Admin or Product Owner roles');
+      }
+    }
+
     // Check email unique
     const existing = await prisma.user.findFirst({
       where: { email: data.email, isActive: true },
@@ -107,8 +123,32 @@ export class StaffService {
     });
   }
 
-  static async update(orgId: string, id: string, data: any, userId: string) {
+  static async update(orgId: string, id: string, data: any, userId: string, creatorRole: string) {
     const staff = await this.getById(orgId, id);
+
+    // Prevent non-Product Owners from updating a Super Admin or Product Owner profile
+    if (
+      (staff.role?.name === 'SUPER_ADMIN' || staff.role?.name === 'PRODUCT_OWNER') &&
+      creatorRole !== 'PRODUCT_OWNER'
+    ) {
+      throw new ForbiddenError('Only a Product Owner can update Super Admin or Product Owner profiles');
+    }
+
+    // Verify role assignment permissions if role is being changed
+    if (data.roleId && data.roleId !== staff.roleId) {
+      const targetRole = await prisma.role.findUnique({
+        where: { id: data.roleId },
+      });
+      if (!targetRole) {
+        throw new NotFoundError('Target role not found');
+      }
+      if (
+        (targetRole.name === 'SUPER_ADMIN' || targetRole.name === 'PRODUCT_OWNER') &&
+        creatorRole !== 'PRODUCT_OWNER'
+      ) {
+        throw new ForbiddenError('Only a Product Owner can assign Super Admin or Product Owner roles');
+      }
+    }
 
     // If email is changing, check uniqueness
     if (data.email && data.email !== staff.email) {
@@ -151,7 +191,12 @@ export class StaffService {
     });
   }
 
-  static async listRoles() {
-    return prisma.role.findMany();
+  static async listRoles(userRole: string) {
+    const roles = await prisma.role.findMany();
+    if (userRole === 'PRODUCT_OWNER') {
+      return roles;
+    }
+    // Non-product-owners cannot see SUPER_ADMIN or PRODUCT_OWNER roles
+    return roles.filter(r => r.name !== 'SUPER_ADMIN' && r.name !== 'PRODUCT_OWNER');
   }
 }
