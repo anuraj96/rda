@@ -36,6 +36,7 @@ import { DashboardController } from '../controllers/dashboardController';
 import { NotificationController } from '../controllers/notificationController';
 import { AuditController } from '../controllers/auditController';
 import { ClientController } from '../controllers/clientController';
+import { EmailController } from '../controllers/emailController';
 
 const router = Router();
 
@@ -174,6 +175,9 @@ router.get('/audit', authMiddleware, tenantMiddleware, checkPermission('read:das
 router.get('/clients', authMiddleware, requireRole(['PRODUCT_OWNER']), ClientController.list);
 router.post('/clients', authMiddleware, requireRole(['PRODUCT_OWNER']), ClientController.create);
 router.delete('/clients/:id', authMiddleware, requireRole(['PRODUCT_OWNER']), ClientController.delete);
-router.post('/clients/:id/enable', authMiddleware, requireRole(['PRODUCT_OWNER']), ClientController.enable);
+// ==========================================
+// 14. EMAIL MODULE (Resend API)
+// ==========================================
+router.post('/email/send', authMiddleware, EmailController.sendEmail);
 
 export default router;

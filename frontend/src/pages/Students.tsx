@@ -172,6 +172,54 @@ export const Students: React.FC = () => {
   const [amountPaid, setAmountPaid] = useState('');
   const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CARD' | 'BANK_TRANSFER'>('UPI');
   const [transactionId, setTransactionId] = useState('');
+
+  // Email modal state
+  const [isEmailOpen, setIsEmailOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleOpenEmailModal = () => {
+    setEmailTo(selectedStudent?.email || '');
+    setEmailSubject(`Notification for ${selectedStudent?.name || 'Student'}`);
+    setEmailMessage('');
+    setEmailStatus(null);
+    setIsEmailOpen(true);
+  };
+
+  const handleSendEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailTo) {
+      setEmailStatus({ type: 'error', message: 'Recipient email ID is required' });
+      return;
+    }
+    if (!emailMessage) {
+      setEmailStatus({ type: 'error', message: 'Email content is required' });
+      return;
+    }
+    try {
+      setSendingEmail(true);
+      setEmailStatus(null);
+      await api.post('/email/send', {
+        to: emailTo,
+        subject: emailSubject,
+        message: emailMessage,
+      });
+      setEmailStatus({ type: 'success', message: 'Email sent successfully via Resend API!' });
+      setTimeout(() => {
+        setIsEmailOpen(false);
+      }, 1800);
+    } catch (err: any) {
+      setEmailStatus({
+        type: 'error',
+        message: err.response?.data?.message || 'Failed to send email. Please verify your Resend API Key in backend/.env',
+      });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
   const fetchStudents = async (targetPage = page) => {
     try {
       setLoading(true);
@@ -472,8 +520,15 @@ export const Students: React.FC = () => {
                 <span>Edit Profile</span>
               </button>
               <button
+                onClick={handleOpenEmailModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-500 bg-blue-500/10 hover:bg-blue-500/20 rounded-xl cursor-pointer"
+              >
+                <Mail className="h-4 w-4" />
+                <span>Send Mail</span>
+              </button>
+              <button
                 onClick={() => handleDeleteStudent(selectedStudent.id)}
-                className="px-3 py-1.5 text-xs font-semibold text-rose-500 bg-rose-500/5 hover:bg-rose-500/10 rounded-xl"
+                className="px-3 py-1.5 text-xs font-semibold text-rose-500 bg-rose-500/5 hover:bg-rose-500/10 rounded-xl cursor-pointer"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -1444,6 +1499,100 @@ export const Students: React.FC = () => {
                 Download PDF
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. SEND EMAIL MODAL OVERLAY */}
+      {isEmailOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-4 animate-scale-in text-xs">
+            <div className="flex justify-between items-center pb-2 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-bold">Send Email Notification</h3>
+              </div>
+              <button
+                onClick={() => setIsEmailOpen(false)}
+                className="p-1 hover:bg-secondary rounded-lg cursor-pointer"
+              >
+                <Plus className="h-5 w-5 rotate-45" />
+              </button>
+            </div>
+
+            {emailStatus && (
+              <div className={`p-3 rounded-lg text-xs border ${
+                emailStatus.type === 'success'
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 font-semibold'
+                  : 'bg-rose-500/10 border-rose-500/20 text-rose-400 font-semibold'
+              }`}>
+                {emailStatus.message}
+              </div>
+            )}
+
+            <form onSubmit={handleSendEmail} className="space-y-4">
+              <div className="space-y-1">
+                <label className="font-bold text-muted-foreground uppercase">Receiver Email ID *</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="student@example.com"
+                  value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
+                  className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none font-semibold text-foreground"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-muted-foreground uppercase">Subject</label>
+                <input
+                  type="text"
+                  placeholder="Email subject"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none text-foreground"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-muted-foreground uppercase">Content / Message *</label>
+                <textarea
+                  rows={5}
+                  required
+                  placeholder="Write your email content here..."
+                  value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)}
+                  className="w-full bg-secondary border border-border px-3 py-2 rounded-lg outline-none text-foreground leading-relaxed"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEmailOpen(false)}
+                  className="flex-1 bg-secondary border border-border py-2 px-3 rounded-xl font-bold cursor-pointer hover:bg-secondary/80"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={sendingEmail}
+                  className="flex-1 bg-primary text-primary-foreground py-2 px-3 rounded-xl font-bold shadow-lg cursor-pointer hover:bg-primary/95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {sendingEmail ? (
+                    <>
+                      <div className="h-3.5 w-3.5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="h-4 w-4" />
+                      <span>Send Email</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
