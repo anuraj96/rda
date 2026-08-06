@@ -207,14 +207,14 @@ export const Students: React.FC = () => {
         subject: emailSubject,
         message: emailMessage,
       });
-      setEmailStatus({ type: 'success', message: 'Email sent successfully via Resend API!' });
+      setEmailStatus({ type: 'success', message: 'Email sent successfully via Mailtrap API!' });
       setTimeout(() => {
         setIsEmailOpen(false);
       }, 1800);
     } catch (err: any) {
       setEmailStatus({
         type: 'error',
-        message: err.response?.data?.message || 'Failed to send email. Please verify your Resend API Key in backend/.env',
+        message: err.response?.data?.message || 'Failed to send email. Please check backend Mailtrap token configuration.',
       });
     } finally {
       setSendingEmail(false);
